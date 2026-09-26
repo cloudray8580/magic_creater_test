@@ -43,7 +43,7 @@
 
 | 编号 | 来源 | 被引用于 |
 |---|---|---|
-| S02 | [国家新闻出版署（2021）：进一步严格管理、防止未成年人沉迷网络游戏](https://www.nppa.gov.cn/xxfb/tzgs/202108/t20210830_666285.html) | [README](../README.md), [04-china-release](../research/04-china-release.md), [00-summary](../research/00-summary.md) |
+| S02 | [国家新闻出版署（2021）：进一步严格管理、防止未成年人沉迷网络游戏](https://www.nppa.gov.cn/xxfb/tzgs/202108/t20210830_666285.html) | [README](../README.md), [04-china-release](../research/04-china-release.md), [00-summary](../research/00-summary.md), [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
 | S03 | [国家新闻出版署：出版国产网络游戏作品审批指南](https://www.nppa.gov.cn/bsfw/xksx/cbfxl/wlcbfwspsx/202210/t20221013_600725.html) | [README](../README.md), [04-china-release](../research/04-china-release.md) |
 | S11 | [教育部等十七部门：2023—2025 学生心理健康专项行动计划](https://www.moe.gov.cn/srcsite/A17/moe_943/moe_946/202305/t20230511_1059219.html) | [01-interventions](../research/01-interventions.md) |
 | S12 | [教育部（2025）：进一步加强中小学生心理健康工作十条措施](https://www.moe.gov.cn/srcsite/A06/s3325/202510/t20251020_1417420.html) | [01-interventions](../research/01-interventions.md) |
@@ -87,15 +87,15 @@
 |---|---|---|
 | S15 | [项目历史](https://www.sparx.org.nz/about-us) | [02-games-and-programs](../research/02-games-and-programs.md) |
 | S16 | [SPARX 官网](https://www.sparx.org.nz/) | [02-games-and-programs](../research/02-games-and-programs.md) |
-| S17 | [产品官网](https://luminova.app/) | [02-games-and-programs](../research/02-games-and-programs.md) |
+| S17 | [产品官网](https://luminova.app/) | [02-games-and-programs](../research/02-games-and-programs.md), [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
 | S23 | [厂商当前页面](https://discover.mightier.com/) | [02-games-and-programs](../research/02-games-and-programs.md) |
 | S24 | [健康计划合作](https://www.mightier.com/health-plans/) | [02-games-and-programs](../research/02-games-and-programs.md) |
-| S26 | [产品 FAQ](https://www.endeavorrx.com/faq/) | [02-games-and-programs](../research/02-games-and-programs.md) |
+| S26 | [产品 FAQ](https://www.endeavorrx.com/faq/) | [02-games-and-programs](../research/02-games-and-programs.md), [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
 | S27 | [创作挑战](https://education.minecraft.net/en-us/resources/classroom-build-challenge) | [02-games-and-programs](../research/02-games-and-programs.md) |
 | S28 | [社会情绪活动集](https://education.minecraft.net/en-us/resources/social-emotional-subject-kit?azure-portal=true) | [02-games-and-programs](../research/02-games-and-programs.md) |
 | S30 | [机构研究说明](https://playincluded.com/research-and-insight/research/) | [02-games-and-programs](../research/02-games-and-programs.md) |
 | S31 | [Scratch 编辑器](https://scratch.mit.edu/projects/editor/) | [03-scratch](../research/03-scratch.md) |
-| S32 | [教师账户官方说明](https://www.scratchfoundation.org/learn/learning-library/teacher-accounts) | [03-scratch](../research/03-scratch.md) |
+| S32 | [教师账户官方说明](https://www.scratchfoundation.org/learn/learning-library/teacher-accounts) | [03-scratch](../research/03-scratch.md), [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
 | S33 | [2024 年报](https://annualreport.scratchfoundation.org/) | [03-scratch](../research/03-scratch.md), [00-summary](../research/00-summary.md) |
 | S34 | [当前募捐页](https://www.scratchfoundation.org/donate) | [03-scratch](../research/03-scratch.md) |
 | S35 | [合作页](https://scratchfoundation.org/get-involved/partner-with-us) | [03-scratch](../research/03-scratch.md) |
@@ -140,3 +140,28 @@
 | S75 | [钉钉标准版介绍](https://home.dingtalk.com/) | [06-documentation](../research/06-documentation.md) |
 | S76 | [钉钉隐私政策](https://terms.alicdn.com/legal-agreement/terms/suit_bu1_dingtalk/suit_bu1_dingtalk202010070946_49604_15_5_18288.html) | [06-documentation](../research/06-documentation.md) |
 | S77 | [文档企业版隐私政策](https://terms.alicdn.com/legal-agreement/terms/privacy_policy_full/20240802170817913/20240802170817913.html) | [06-documentation](../research/06-documentation.md) |
+
+### F｜竞品与差异化补充（2026-09-26）
+
+| 编号 | 来源 | 被引用于 |
+|---|---|---|
+| S78 | [元分析摘要](https://pubmed.ncbi.nlm.nih.gov/39312259/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S79 | [Bloxels EDU](https://www.bloxels.com/education) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S80 | [Minecraft Education 功能](https://education.minecraft.net/en-us/discover/what-is-minecraft) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S81 | [马力欧创造家 2](https://supermariomaker.nintendo.com/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S82 | [Game Builder Garage](https://www.nintendo.com/us/store/products/game-builder-garage-us/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S83 | [Roblox 创作者文档](https://create.roblox.com/docs/index.html) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S84 | [蛋仔工坊官方介绍](https://www.neteasegames.com/news/20230612/37000_1082827.html) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S85 | [元梦之星官网](https://ymzx.qq.com/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S86 | [Dreams 产品页](https://www.playstation.com/en-us/games/dreams/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S87 | [教育版账号与试用](https://hub.bloxels.com/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S88 | [初代服务终止说明](https://en-americas-support.nintendo.com/app/answers/detail/a_id/53854/p/603) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S89 | [任天堂 FAQ](https://www.nintendo.com/au/games/nintendo-switch/game-builder-garage/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S90 | [教师评估资源](https://education.minecraft.net/en-us/lessons/assessment-in-minecraft-education-edition-a-guide-for-teachers) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S91 | [许可 FAQ](https://edusupport.minecraft.net/hc/en-us/articles/360047119092-FAQ-Availability-Pricing-and-Licensing) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S92 | [协作文档](https://create.roblox.com/docs/projects/collaboration) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S93 | [模板](https://create.roblox.com/docs/resources/roblox-connect) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S94 | [作品发现机制](https://create.roblox.com/docs/discovery) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S95 | [网易 2025 ESG 报告](https://ir.netease.com/static-files/23cbbcbc-231d-4d2b-912d-e71f54cf4bdb) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S96 | [服务调整公告](https://docs.indreams.me/en/whats-happening/news/dreams-support-update) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |
+| S97 | [Mightier 学校方案](https://www.mightier.com/schools/) | [09-competitors-and-differentiation](../research/09-competitors-and-differentiation.md) |

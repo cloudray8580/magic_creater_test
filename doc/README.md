@@ -37,6 +37,7 @@
 | [06 文档与多人协作](research/06-documentation.md) | Markdown、钉钉、Notion、飞书、自托管、Agent 接入和保留期限 |
 | [07 试点与待确认问题](research/07-pilot-and-open-questions.md) | 可执行的活动、观察指标、比较方案、继续/调整标准 |
 | [08 来源与调研边界](research/08-sources.md) | 官方和学术来源索引、时效、未核实项 |
+| [09 竞品、经验与差异化](research/09-competitors-and-differentiation.md) | 三个担忧、九个创造类产品、五个心理干预产品、差异化候选与验证方式 |
 | [方向建议记录](decisions/0001-proposed-direction.md) | 将研究建议与已确认决定区分 |
 
 ## 如何使用这些文档
