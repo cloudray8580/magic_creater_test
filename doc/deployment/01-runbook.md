@@ -67,3 +67,14 @@ node dist/server/backup.js "$HOME/.local/share/magic-creater/backups/backup-$(da
 5. 保留原机数据与release用于回退；不得双机并发写同一SQLite文件。
 
 不引入Redis、Kubernetes、微服务或多个数据库实例。Docker可移植性待实际构建和ECS验收，不能将“技术可迁移”写成“已无缝验证”。
+
+## 待迁出的恢复材料（2026-09-26 22:02 CST）
+
+已在11700生成一份GnuPG AES256加密恢复包：
+
+- 标识：`20260926T140237Z-fdf2dd`，应用源提交`9baed6e9135617585e5e9157b6843089e5bf6685`。
+- 目录：`~/.local/share/magic-creater/exports/20260926T140237Z-fdf2dd/`，包含密文、SHA256SUMS、恢复说明和验证结果。
+- 随机恢复口令另存于`~/.config/magic-creater/recovery-keys/`，权限600；口令及明文数据库均不得提交仓库。
+- 包内包含一致性数据库快照、应用配置、首次老师凭据与文件哈希清单；恢复时需调整配置中的目标路径和来源地址。
+- 已验证解密后的tar字节一致、各文件哈希、SQLite完整性及外键检查。
+- **尚未迁出原主机**。目的地待用户选择；密文及恢复口令均须保留可恢复的异机副本，口令使用独立受限位置。完成复制前不能将该包计作异机备份。
