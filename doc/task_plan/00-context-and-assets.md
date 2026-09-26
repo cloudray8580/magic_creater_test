@@ -7,4 +7,4 @@
 - 权威范围：[首版设计](../design/01-mvp-design.md)、[ADR 0002](../decisions/0002-small-scale-web-app.md)，以及用户最新要求全在11700执行、后端增量UT≥70%、完整跑通和子agent复查。
 - 只读探索：requirements_audit 提取完整验收；deployment_audit 确认 systemd 用户管理器运行、Linger=yes、Docker socket 无权限、常用应用端口未占用。
 - Mac仅作为SSH控制和结果查看终端，不在Mac安装项目依赖或运行测试。
-- 技术风险：本地/服务端草稿冲突、固定版本与撤回权限、持久数据隔离；外部备份目的地与Docker权限待用户回复，不阻塞开发。
+- 技术风险：本地/服务端草稿冲突、固定版本与撤回权限、持久数据隔离；初期部署已采用systemd用户服务，无需Docker提权；异机备份按用户2026-09-26决定移至后续，不属于第一版。
