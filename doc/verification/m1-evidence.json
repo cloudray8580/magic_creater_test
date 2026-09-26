@@ -1,0 +1,265 @@
+{
+  "generatedAt": "2026-09-26T13:57:40.688390+00:00",
+  "baseline": "a35c385ddfb26af0061a63aa0b450e8925b6ca2f",
+  "ut": {
+    "passed": 27,
+    "skipped": 0
+  },
+  "e2e": {
+    "passed": 3,
+    "browser": "Chromium 153 / Linux"
+  },
+  "backendCoverage": {
+    "src/server/admin.ts": {
+      "lines": {
+        "total": 24,
+        "covered": 20,
+        "skipped": 0,
+        "pct": 83.33
+      },
+      "functions": {
+        "total": 5,
+        "covered": 3,
+        "skipped": 0,
+        "pct": 60
+      },
+      "statements": {
+        "total": 24,
+        "covered": 20,
+        "skipped": 0,
+        "pct": 83.33
+      },
+      "branches": {
+        "total": 17,
+        "covered": 16,
+        "skipped": 0,
+        "pct": 94.11
+      }
+    },
+    "src/server/app.ts": {
+      "lines": {
+        "total": 185,
+        "covered": 181,
+        "skipped": 0,
+        "pct": 97.83
+      },
+      "functions": {
+        "total": 37,
+        "covered": 37,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 198,
+        "covered": 190,
+        "skipped": 0,
+        "pct": 95.95
+      },
+      "branches": {
+        "total": 99,
+        "covered": 87,
+        "skipped": 0,
+        "pct": 87.87
+      }
+    },
+    "src/server/auth.ts": {
+      "lines": {
+        "total": 10,
+        "covered": 10,
+        "skipped": 0,
+        "pct": 100
+      },
+      "functions": {
+        "total": 4,
+        "covered": 4,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 11,
+        "covered": 11,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branches": {
+        "total": 2,
+        "covered": 2,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "src/server/backup.ts": {
+      "lines": {
+        "total": 19,
+        "covered": 10,
+        "skipped": 0,
+        "pct": 52.63
+      },
+      "functions": {
+        "total": 3,
+        "covered": 1,
+        "skipped": 0,
+        "pct": 33.33
+      },
+      "statements": {
+        "total": 20,
+        "covered": 10,
+        "skipped": 0,
+        "pct": 50
+      },
+      "branches": {
+        "total": 14,
+        "covered": 8,
+        "skipped": 0,
+        "pct": 57.14
+      }
+    },
+    "src/server/config.ts": {
+      "lines": {
+        "total": 10,
+        "covered": 9,
+        "skipped": 0,
+        "pct": 90
+      },
+      "functions": {
+        "total": 3,
+        "covered": 3,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 13,
+        "covered": 12,
+        "skipped": 0,
+        "pct": 92.3
+      },
+      "branches": {
+        "total": 20,
+        "covered": 19,
+        "skipped": 0,
+        "pct": 95
+      }
+    },
+    "src/server/db.ts": {
+      "lines": {
+        "total": 16,
+        "covered": 14,
+        "skipped": 0,
+        "pct": 87.5
+      },
+      "functions": {
+        "total": 2,
+        "covered": 2,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 19,
+        "covered": 16,
+        "skipped": 0,
+        "pct": 84.21
+      },
+      "branches": {
+        "total": 4,
+        "covered": 3,
+        "skipped": 0,
+        "pct": 75
+      }
+    },
+    "src/server/input.ts": {
+      "lines": {
+        "total": 17,
+        "covered": 17,
+        "skipped": 0,
+        "pct": 100
+      },
+      "functions": {
+        "total": 7,
+        "covered": 7,
+        "skipped": 0,
+        "pct": 100
+      },
+      "statements": {
+        "total": 17,
+        "covered": 17,
+        "skipped": 0,
+        "pct": 100
+      },
+      "branches": {
+        "total": 17,
+        "covered": 17,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "src/server/main.ts": {
+      "lines": {
+        "total": 13,
+        "covered": 5,
+        "skipped": 0,
+        "pct": 38.46
+      },
+      "functions": {
+        "total": 4,
+        "covered": 1,
+        "skipped": 0,
+        "pct": 25
+      },
+      "statements": {
+        "total": 13,
+        "covered": 5,
+        "skipped": 0,
+        "pct": 38.46
+      },
+      "branches": {
+        "total": 4,
+        "covered": 3,
+        "skipped": 0,
+        "pct": 75
+      }
+    }
+  },
+  "sourceSha256": {
+    "Dockerfile": "b2332e9ab2f331c332b862676061e7ab39ee580ddb7480be60c9d2ffee130ff6",
+    "package-lock.json": "0eb6fad8332ba6861f02844d2c81924a6c2dddc0e56c38b72513bf5a4113f142",
+    "package.json": "ccac9f52a78435e9b6fc7c555d41775e97439875e881173635748e10070e5b46",
+    "playwright.config.ts": "26112995629c37312bef1b035d7b971f3ea064e9a8c55685c834ac2ae22b2c4a",
+    "scripts/backup-user.sh": "cd730cc8b5ce562ef0adaf1507704236ec919a9097253c00972bbf2eefdd9abf",
+    "scripts/check-backend-coverage.mjs": "afb8d9833de8f982ff5a0cc576f8b22640a8118635154ed8c2f31c2a47743536",
+    "scripts/deploy-user.sh": "74a2c0edde97ccec07bf160fe419c25c639eb97eab4f8da5c06371b2946da525",
+    "scripts/verify-deployment.mjs": "e6c9e07bf0fe2b1bc04bdedbdb05440ac7d509f641c241abe18accaab3fa9b2e",
+    "src/client/App.tsx": "23e5bfb93d77c48538d58b905c66ae5414b5b884c58632b94bef28f0a5b4ede4",
+    "src/client/Play.tsx": "7b5f18ac20270d691a8f13a19c1605d79c582dfc40c21fc91329e7a9dbe3ae8e",
+    "src/client/api.ts": "a198f822b072db1b240e5c04aaecf929a9ca37050ced75607cbf9c8be264acf4",
+    "src/client/drafts.ts": "cf21e1c160650e77a4858c9f4a380fb9c34cc895aaaedec4ab8706451440d6a0",
+    "src/client/main.tsx": "b770e2bb4406c24c4ea22bbb861dade5d2978d6ecdee064b8d58976d1ac0c40e",
+    "src/client/style.css": "fb506c57766ee2b05876447e74f2661414652155f86d34b98e2d3a5d82e5a246",
+    "src/server/admin.ts": "bcc64be5157e16afb2b47457b7b2e4bae02173c3119de1e37cc5a4bbf1039405",
+    "src/server/app.ts": "14bacd4d97210b5e35fe4ca90a82aebd8afe180d6b01fe3e57e71c6b2cf2b672",
+    "src/server/auth.ts": "fbf673ff61d8846f6b4c0816270a0ed865c5b70d64953bd20139ff9f12526302",
+    "src/server/backup.ts": "052913443b17dcb5c2e3c3e903003a82164f30b61a9302c1e34e91e66d424891",
+    "src/server/config.ts": "c383381db4157fec50cd3e0edd045b3d926a2ea5d9396ca1233a621409fe4760",
+    "src/server/db.ts": "bb4e7b343afc4894639c66606f7349ae65bc14272b3b7b603fc1fc9d4f8320a2",
+    "src/server/input.ts": "112f893caf39a8733f7272e672021fce50ad5a31aeebace3eddb801e2154f3e1",
+    "src/server/main.ts": "81b9c35227ebc5c75e3e72f203edcc9d3105bc1f897fb80f9df0334fdef5b8ae",
+    "src/shared/game.ts": "8bbbb597e617c4d1778a7a71a0cff3bc52725568a18fd6f9b791d01d218d1408",
+    "tests/e2e/server.ts": "4d1460874127bf37a01f843a4c838bceb12d4f3ab2df896bc107850e28f6fabc",
+    "tests/e2e/workflow.spec.ts": "519e6053f80a020f8424f34762434a23b31a77b78b351980ded82575b156fd4a",
+    "tests/unit/auth.test.ts": "21a980a9591fe6a47b3804a1638d0dc7c44351a57566772a5369d998fe479abd",
+    "tests/unit/database.test.ts": "db98cd7de3818840311b650e534e084c04256d5b74d81e796c33063dc7781ad4",
+    "tests/unit/game.test.ts": "16355c57f60c239cbc30fcb4ec42a9d5ee50cf2a42dbdb33e74f5577d86d812b",
+    "tests/unit/operations.test.ts": "f53fe5124721c38f0f9583d22def2a617133863132bc47f38717357efc6d1ee4",
+    "tests/unit/server.test.ts": "d7cba4bd47ba3748c5d2155e00cad020a27761a3a33d841c8b104c84cebd748c",
+    "tsconfig.json": "6dc7fc7f4aeef1fdc8238f356addf69fc92c988fd513e16294e08f6bbacd081a",
+    "tsconfig.server.json": "4a45390e6fc7b003c3148d8665a10d08a05c2c0faee76bc3c3283b7a31712443",
+    "vite.config.ts": "3e9557a513f1af83260eb31adac0aa44895f2ed592465344c09b1bd54732e726",
+    "vitest.config.ts": "45ea65d8e79e5fd022944448c1e9f4c68e7f6c44e31b0de9c2c1235f455c366d"
+  },
+  "deployment": {
+    "service": "active",
+    "release": "20260926T135402Z",
+    "restartSession": "passed",
+    "restore": "passed",
+    "offHostBackup": "pending-user-location"
+  }
+}
