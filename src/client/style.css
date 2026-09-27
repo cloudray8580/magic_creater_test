@@ -549,3 +549,173 @@ footer {
     padding: 15px;
   }
 }
+
+/* Shared illustrated game surface, sized first for desktop keyboard/mouse. */
+.sample-intro {
+  margin: 20px 0;
+}
+.sample-picker {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.sample-picker button {
+  text-align: left;
+  padding: 16px;
+  border-radius: 16px;
+}
+.sample-picker small {
+  display: block;
+  font-weight: normal;
+  opacity: 0.8;
+}
+.sample-picker .active {
+  border: 2px solid #bd8443;
+  background: #fff2d9;
+}
+.adventure-play {
+  border: 1px solid #d9c8ab;
+  border-radius: 24px;
+  padding: 20px;
+  background: #fffaf0;
+  box-shadow: 0 16px 40px #304c3810;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.adventure-play:focus {
+  outline: 3px solid #bf904b;
+  outline-offset: 3px;
+}
+.game-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px 14px;
+}
+.game-heading h2 {
+  margin: 0;
+  font-size: 25px;
+}
+.game-heading > span {
+  padding: 6px 12px;
+  background: #e5eddd;
+  border-radius: 20px;
+  font-size: 14px;
+}
+.game-stage {
+  position: relative;
+  aspect-ratio: 5 / 3;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #d2e2d6;
+  border: 3px solid #657b5a;
+}
+.phaser-host {
+  width: 100%;
+  height: 100%;
+}
+.phaser-host canvas {
+  display: block;
+}
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #fbf6e4ba;
+  backdrop-filter: blur(3px);
+  padding: 30px;
+  text-align: center;
+}
+.game-overlay .primary {
+  padding: 14px 30px;
+  border-radius: 30px;
+  font-size: 20px;
+}
+.game-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  border-radius: 20px;
+  background: #fff8e6eb;
+  box-shadow: 0 4px 15px #334b4330;
+  padding: 6px 18px;
+}
+.dialogue-card {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 18px;
+  background: #fffbef;
+  border: 2px solid #b88c53;
+  box-shadow: 0 7px 20px #203c3630;
+  border-radius: 18px;
+  padding: 18px 24px;
+}
+.dialogue-card strong {
+  color: #9a5f34;
+  font-size: 19px;
+}
+.dialogue-card p {
+  white-space: pre-wrap;
+  margin: 6px 0 14px;
+}
+.game-hud {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 6px 5px;
+  font-size: 14px;
+}
+.game-hud > span:first-child {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.game-coordinate {
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+.inventory {
+  margin: 4px 6px;
+  font-size: 14px;
+}
+.game-footer {
+  border-top: 1px solid #e7dcc5;
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.game-footer p {
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+.game-footer label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+.game-footer input[type='checkbox'] {
+  display: inline;
+  width: auto;
+}
+.game-footer button {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+@media (max-width: 800px) {
+  .sample-picker {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .adventure-play {
+    padding: 10px;
+  }
+  .dialogue-card {
+    left: 3%;
+    right: 3%;
+    padding: 10px;
+  }
+}

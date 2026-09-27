@@ -11,3 +11,5 @@ test-results/
 *.db
 *.db-*
 artifacts/
+
+.vitest/

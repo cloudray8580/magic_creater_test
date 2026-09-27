@@ -4,7 +4,14 @@ const sums = Object.fromEntries(
   ['lines', 'statements', 'functions', 'branches'].map((k) => [k, { total: 0, covered: 0 }]),
 );
 let count = 0;
-for (const [file, data] of Object.entries(report))
+const core = structuredClone(sums);
+for (const [file, data] of Object.entries(report)) {
+  if (file.includes('/src/server/') || file.includes('/src/shared/')) {
+    for (const k of Object.keys(core)) {
+      core[k].total += data[k].total;
+      core[k].covered += data[k].covered;
+    }
+  }
   if (file.includes('/src/server/')) {
     count++;
     for (const k of Object.keys(sums)) {
@@ -12,9 +19,16 @@ for (const [file, data] of Object.entries(report))
       sums[k].covered += data[k].covered;
     }
   }
+}
 if (!count) throw new Error('No backend coverage files found');
 for (const [key, value] of Object.entries(sums)) {
   const percent = value.total ? (100 * value.covered) / value.total : 100;
   console.log(`Backend ${key}: ${value.covered}/${value.total} = ${percent.toFixed(2)}%`);
+  if (percent < 70) process.exitCode = 1;
+}
+
+for (const [key, value] of Object.entries(core)) {
+  const percent = value.total ? (100 * value.covered) / value.total : 100;
+  console.log(`Server + shared ${key}: ${value.covered}/${value.total} = ${percent.toFixed(2)}%`);
   if (percent < 70) process.exitCode = 1;
 }

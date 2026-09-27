@@ -16,7 +16,10 @@ import {
   type Tool,
 } from '../shared/game.js';
 import { Play, labels, symbols } from './Play.js';
-type View = 'mine' | 'editor' | 'shelf' | 'play' | 'manage';
+import { AdventurePlay } from './AdventurePlay.js';
+import { adventureTemplate, TEMPLATE_IDS, TEMPLATE_INFO } from '../shared/adventure/templates.js';
+import type { AdventureDocument } from '../shared/adventure/document.js';
+type View = 'samples' | 'mine' | 'editor' | 'shelf' | 'play' | 'manage';
 const statusLabels: Record<string, string> = {
   pending: '等待老师确认',
   approved: '展示中',
@@ -38,6 +41,7 @@ function download(doc: GameDocument) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function App() {
+  const [sample, setSample] = useState<AdventureDocument>(() => adventureTemplate());
   const editorLock = useRef<{ key: string; release: () => void } | null>(null);
   function releaseEditor() {
     editorLock.current?.release();
@@ -314,14 +318,22 @@ export function App() {
         </button>
       </header>
       <nav>
-        {(['mine', 'shelf', ...(user.role === 'teacher' ? ['manage'] : [])] as View[]).map((v) => (
+        {(
+          ['mine', 'shelf', 'samples', ...(user.role === 'teacher' ? ['manage'] : [])] as View[]
+        ).map((v) => (
           <button
             key={v}
             disabled={busy}
             className={view === v ? 'active' : ''}
             onClick={() => void action(() => navigate(v))}
           >
-            {v === 'mine' ? '我的作品' : v === 'shelf' ? '同伴作品' : '老师管理'}
+            {v === 'mine'
+              ? '我的作品'
+              : v === 'shelf'
+                ? '同伴作品'
+                : v === 'samples'
+                  ? '灵感样板'
+                  : '老师管理'}
           </button>
         ))}
       </nav>
@@ -335,6 +347,29 @@ export function App() {
           </div>
         )}
         <fieldset disabled={busy} className="workspace">
+          {view === 'samples' && (
+            <>
+              <div className="sample-intro">
+                <span className="eyebrow">从一次小冒险开始</span>
+                <h1>六个世界，等你发现</h1>
+                <p>先玩一会儿，看看地形、机关和故事如何组合。</p>
+              </div>
+              <div className="sample-picker">
+                {TEMPLATE_IDS.map((id) => (
+                  <button
+                    key={id}
+                    className={sample.title === TEMPLATE_INFO[id].title ? 'active' : ''}
+                    onClick={() => setSample(adventureTemplate(id))}
+                  >
+                    <span>{TEMPLATE_INFO[id].title}</span>
+                    <small>{TEMPLATE_INFO[id].description}</small>
+                  </button>
+                ))}
+              </div>
+              <AdventurePlay key={sample.title} document={sample} />
+            </>
+          )}
+
           {view === 'mine' && (
             <>
               <section className="hero">
