@@ -248,3 +248,90 @@ it('rejects a stale tab expected account before creating or reading another acco
       .statusCode,
   ).toBe(200);
 });
+
+for (const kind of ['copy', 'import', 'remix'] as const)
+  it(
+    kind + ' creation replays once, separates owners and preserves deletion tombstones',
+    async () => {
+      const p = await createProject();
+      let url = '/api/projects/' + p.id + '/copy',
+        payload: Record<string, unknown> = {};
+      if (kind === 'import') {
+        url = '/api/projects/import';
+        payload = { bundle: p.document };
+      }
+      if (kind === 'remix') {
+        await request('PUT', '/api/projects/' + p.id, alice, {
+          document: p.document,
+          revision: 1,
+          allowRemix: true,
+        });
+        const v = (
+          await request('POST', '/api/projects/' + p.id + '/submit', alice, { revision: 2 })
+        ).json();
+        await request('PATCH', '/api/versions/' + v.id, teacher, { status: 'approved' });
+        url = '/api/versions/' + v.id + '/remix';
+      }
+      const body = { ...payload, creationKey };
+      expect((await request('POST', url, alice, { ...body, creationKey: 'bad' })).statusCode).toBe(
+        400,
+      );
+      const first = await request('POST', url, alice, body);
+      expect(first.statusCode).toBe(201);
+      const retry = await request('POST', url, alice, body);
+      expect(retry.statusCode).toBe(200);
+      expect(retry.json()).toEqual(first.json());
+      const next = await request('POST', url, alice, { ...body, creationKey: crypto.randomUUID() });
+      expect(next.statusCode).toBe(201);
+      expect(next.json().id).not.toBe(first.json().id);
+      if (kind !== 'copy') {
+        const other = await request('POST', url, bob, body);
+        expect(other.statusCode).toBe(201);
+        expect(other.json().id).not.toBe(first.json().id);
+      } else expect((await request('POST', url, bob, body)).statusCode).toBe(404);
+      await request('DELETE', '/api/projects/' + first.json().id, alice, { revision: 1 });
+      expect((await request('POST', url, alice, body)).statusCode).toBe(410);
+      // A successful independent result can still be retrieved after its source disappears.
+      await request('DELETE', '/api/projects/' + p.id, alice, {
+        revision: kind === 'remix' ? 2 : 1,
+      });
+      const nextKey = (
+        ctx.db
+          .prepare('SELECT creation_key FROM project_creations WHERE project_id=?')
+          .get(next.json().id) as { creation_key: string }
+      ).creation_key;
+      expect(
+        (await request('POST', url, alice, { ...payload, creationKey: nextKey })).json().id,
+      ).toBe(next.json().id);
+    },
+  );
+it('serializes concurrent normalized-image imports and rolls back a failed creation mapping atomically', async () => {
+  const a = await upload();
+  const d = adventureTemplate();
+  d.hero.skin = 'asset:imported';
+  const body = {
+    creationKey,
+    bundle: {
+      format: 'magic-creater-bundle',
+      bundleVersion: 1,
+      document: d,
+      assets: [{ id: 'imported', name: '角色', data: a.data }],
+    },
+  };
+  const before = ctx.db.prepare('SELECT count(*) n FROM projects').get();
+  ctx.db.exec(
+    "CREATE TRIGGER reject_mapping BEFORE INSERT ON project_creations BEGIN SELECT RAISE(ABORT,'test'); END",
+  );
+  expect((await request('POST', '/api/projects/import', bob, body)).statusCode).toBe(500);
+  expect(ctx.db.prepare('SELECT count(*) n FROM projects').get()).toEqual(before);
+  expect((await request('GET', '/api/assets', bob)).json().assets).toHaveLength(0);
+  ctx.db.exec('DROP TRIGGER reject_mapping');
+  const responses = await Promise.all([
+    request('POST', '/api/projects/import', bob, body),
+    request('POST', '/api/projects/import', bob, body),
+  ]);
+  expect(responses.map((r) => r.statusCode).sort()).toEqual([200, 201]);
+  expect(responses[0].json().id).toBe(responses[1].json().id);
+  expect((await request('GET', '/api/projects', bob)).json().projects).toHaveLength(1);
+  expect((await request('GET', '/api/assets', bob)).json().assets).toHaveLength(1);
+});

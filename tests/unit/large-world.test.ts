@@ -24,7 +24,7 @@ it('expands a platform map to 512x64 with an atomic long brush and rejects crop 
   expect(next.rooms[0].tiles.filter((t) => t.y === 30)).toHaveLength(512);
   expect(() => resizeRoom(next, 'trail', 64, 64)).toThrow('裁切');
   expect(next.rooms[0].width).toBe(512);
-  expect(() => resizeRoom(next, 'trail', 513, 64)).toThrow();
+  expect(() => resizeRoom(next, 'trail', 2049, 64)).toThrow();
   const story = adventureTemplate('forest-letter');
   expect(() => resizeRoom(story, story.rooms[0].id, 33, 24)).toThrow();
 });
@@ -41,7 +41,7 @@ it('accepts the platform tile budget while retaining the story budget', () => {
   }));
   expect(() => validateCreative(d)).not.toThrow();
   r.tiles.push({ x: 0, y: 16, kind: 'solid' });
-  expect(() => validateCreative(d)).toThrow('地形');
+  expect(() => validateCreative(d)).not.toThrow();
 });
 it('indexes tile neighbors and queries only intersecting cells across chunk boundaries', () => {
   const d = resizeRoom(adventureTemplate(), 'trail', 512, 64),

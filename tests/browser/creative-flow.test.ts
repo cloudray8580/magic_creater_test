@@ -204,7 +204,9 @@ it('only sends a location after explicit capture and clears it after feedback su
   await click('不附带位置');
   expect(host.textContent).not.toContain('已记录：');
   await click('改编这个作品');
-  expect(mocks.api).toHaveBeenCalledWith('/versions/v/remix', 'POST', {});
+  expect(mocks.api).toHaveBeenCalledWith('/versions/v/remix', 'POST', {
+    creationKey: expect.any(String),
+  });
 });
 it('shows unsupported locations without borrowing a different document room', async () => {
   host = document.createElement('div');

@@ -1,13 +1,14 @@
 # 创造力游戏：调研与设计
 
-更新日期：2026-09-27。项目：`magic_creater_test`。状态：研究资料已归档；用户已确认按小规模单应用方案形成首版设计，首版及双玩法升级已经实现并在11700内部部署，M1及M2–M6验收通过，异机备份按用户决定移至后续。首批设备已确定为电脑＋键盘鼠标；年龄、具体对象与公开发行渠道仍待明确。
+更新日期：2026-09-28。项目：`magic_creater_test`。状态：研究资料已归档；用户已确认按小规模单应用方案形成首版设计，首版及双玩法升级已经实现并在11700内部部署，M1及M2–M10验收通过，异机备份按用户决定移至后续。首批设备已确定为电脑＋键盘鼠标；年龄、具体对象与公开发行渠道仍待明确。
 
 ## 双玩法升级入口
 
 - [创作工坊使用指南](usage/01-creative-workshop.md)
 - [双玩法目标与范围](task_plan/dual-games/01-goals-and-non-goals.md)
 - [里程碑、契约与验证](task_plan/dual-games/02-milestones.md)
-- [M6验收与发布证据](task_plan/dual-games/17-m6-verification.md)
+- [M10最新验收与发布证据](task_plan/dual-games/25-m10-verification.md)
+- [各版一分钟演示](https://github.com/cloudray8580/magic_creater_test/releases)
 
 用户已授权横版跳跃和探索故事两种玩法，新增Phaser 3呈现层，继续使用一个Fastify应用和SQLite。下面首版固定网格设计保留历史背景；升级范围和行为以双玩法契约为准。
 

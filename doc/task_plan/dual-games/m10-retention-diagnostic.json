@@ -1,0 +1,141 @@
+{
+  "commit": "ad178b7ea03a372c4b9788feb99f48fa5e1b0c23",
+  "frontendIndexSha256": "2f2d8ff18108b8362516445b0e571313db23a06ec77e6646e15cf0c1e37010f9",
+  "host": "i7-11700",
+  "viewport": "1440x1000",
+  "requiredDurationMs": 1800000,
+  "isolatedData": true,
+  "samples": [
+    {
+      "cycle": 0,
+      "game": "platformer",
+      "elapsedMs": 10819,
+      "retainedHeapMiB": 13.014373779296875,
+      "domNodes": 1284,
+      "documents": 27,
+      "jsEventListeners": 687
+    },
+    {
+      "cycle": 1,
+      "game": "story",
+      "elapsedMs": 31142,
+      "retainedHeapMiB": 11.844654083251953,
+      "domNodes": 1360,
+      "documents": 31,
+      "jsEventListeners": 440
+    },
+    {
+      "cycle": 2,
+      "game": "platformer",
+      "elapsedMs": 51771,
+      "retainedHeapMiB": 16.996986389160156,
+      "domNodes": 1423,
+      "documents": 27,
+      "jsEventListeners": 711
+    },
+    {
+      "cycle": 3,
+      "game": "story",
+      "elapsedMs": 72058,
+      "retainedHeapMiB": 15.473365783691406,
+      "domNodes": 1498,
+      "documents": 31,
+      "jsEventListeners": 464
+    },
+    {
+      "cycle": 4,
+      "game": "platformer",
+      "elapsedMs": 92920,
+      "retainedHeapMiB": 20.705142974853516,
+      "domNodes": 1561,
+      "documents": 27,
+      "jsEventListeners": 735
+    },
+    {
+      "cycle": 5,
+      "game": "story",
+      "elapsedMs": 113169,
+      "retainedHeapMiB": 19.107498168945312,
+      "domNodes": 1636,
+      "documents": 31,
+      "jsEventListeners": 488
+    },
+    {
+      "cycle": 6,
+      "game": "platformer",
+      "elapsedMs": 133813,
+      "retainedHeapMiB": 24.177974700927734,
+      "domNodes": 1699,
+      "documents": 27,
+      "jsEventListeners": 759
+    },
+    {
+      "cycle": 7,
+      "game": "story",
+      "elapsedMs": 154040,
+      "retainedHeapMiB": 22.531261444091797,
+      "domNodes": 1774,
+      "documents": 31,
+      "jsEventListeners": 512
+    },
+    {
+      "cycle": 8,
+      "game": "platformer",
+      "elapsedMs": 174597,
+      "retainedHeapMiB": 27.746753692626953,
+      "domNodes": 1837,
+      "documents": 27,
+      "jsEventListeners": 783
+    },
+    {
+      "cycle": 9,
+      "game": "story",
+      "elapsedMs": 194726,
+      "retainedHeapMiB": 26.154273986816406,
+      "domNodes": 1912,
+      "documents": 31,
+      "jsEventListeners": 534
+    },
+    {
+      "cycle": 10,
+      "game": "platformer",
+      "elapsedMs": 215254,
+      "retainedHeapMiB": 31.16671371459961,
+      "domNodes": 1975,
+      "documents": 27,
+      "jsEventListeners": 807
+    },
+    {
+      "cycle": 11,
+      "game": "story",
+      "elapsedMs": 235360,
+      "retainedHeapMiB": 29.042274475097656,
+      "domNodes": 2050,
+      "documents": 31,
+      "jsEventListeners": 560
+    },
+    {
+      "cycle": 12,
+      "game": "platformer",
+      "elapsedMs": 255886,
+      "retainedHeapMiB": 34.0593147277832,
+      "domNodes": 2113,
+      "documents": 27,
+      "jsEventListeners": 831
+    },
+    {
+      "cycle": 13,
+      "game": "story",
+      "elapsedMs": 276063,
+      "retainedHeapMiB": 32.471187591552734,
+      "domNodes": 2188,
+      "documents": 31,
+      "jsEventListeners": 584
+    }
+  ],
+  "errors": [],
+  "browser": "153.0.8010.12",
+  "startedAt": "2026-09-27T15:03:01.697Z",
+  "status": "stopped-after-confirmed-scene-retention",
+  "note": "Diagnostic only: early stopped; not a completed 30-minute result. Corrected final build is measured separately."
+}

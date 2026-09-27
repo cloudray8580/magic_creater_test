@@ -18,8 +18,23 @@ async function cell(page: Page, x: number, y: number) {
 async function finish(page: Page, mode: 'platformer' | 'story') {
   await page.getByRole('button', { name: '点击进入小世界' }).click();
   if (mode === 'story') {
-    await page.keyboard.press('ArrowDown');
-    await expect(page.locator('.game-coordinate')).toHaveText('2,8');
+    const walk = async (key: string, position: string) => {
+      await page.keyboard.down(key);
+      await page.waitForFunction(
+        (p) => document.querySelector('.game-coordinate')?.textContent === p,
+        position,
+      );
+      await page.keyboard.up(key);
+    };
+    await walk('ArrowUp', '2,5');
+    await walk('ArrowRight', '10,5');
+    await page.keyboard.press('e');
+    await page.getByRole('button', { name: '我想再逛逛小屋', exact: true }).click();
+    await walk('ArrowDown', '10,8');
+    await page.keyboard.down('ArrowLeft');
+    await expect(page.getByRole('heading', { name: '你让这个世界发生了变化' })).toBeVisible();
+    await page.keyboard.up('ArrowLeft');
+    return;
   }
   await page.keyboard.down('ArrowRight');
   await expect(page.getByRole('heading', { name: '你让这个世界发生了变化' })).toBeVisible({

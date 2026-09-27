@@ -138,6 +138,9 @@ describe('C42 dialogue cards', () => {
       doc = setDialogueChoice(doc, 'friend', fallback.id, i, { label: '选项' + i });
     expect(() => setDialogueChoice(doc, 'friend', fallback.id, 3, { label: '多余' })).toThrow();
     const home = adventureTemplate('secret-home');
+    home.rooms[0].objects.find((o) => o.id === 'host')!.dialogue = [
+      { id: 'hello', text: 'hello', choices: [] },
+    ];
     expect(() => removeDialoguePage(home, 'host', 'hello', true)).toThrow(/一页|对话/);
     expect(() => addDialoguePage(source, 'gift')).toThrow(/人物/);
   });

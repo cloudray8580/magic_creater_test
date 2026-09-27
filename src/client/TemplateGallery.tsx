@@ -10,14 +10,17 @@ const summaries: Record<TemplateId, { summary: string; focus: string }> = {
     focus: '移动平台 · 把握时机',
   },
   'rooftop-secret': {
-    summary: '避开巡逻小鸟，集齐三枚星星才能到达终点。',
+    summary: '避开巡逻蘑菇，集齐三枚星星才能到达终点。',
     focus: '必需收集 · 巡逻挑战',
   },
   'forest-letter': {
     summary: '推箱子压住机关、穿过森林，把来信交给狐狸。',
     focus: '机关解谜 · 两个房间',
   },
-  lighthouse: { summary: '寻找电池、解开机关，再把电池交给守灯人。', focus: '物品交付 · 两个房间' },
+  lighthouse: {
+    summary: '同时点亮两处电源，取出电池，再把光带回灯塔。',
+    focus: '组合条件 · 点亮灯塔',
+  },
   'secret-home': {
     summary: '探索温暖小屋，与小猫对话，用不同选择写下结局。',
     focus: '对话分支 · 多种结局',
@@ -88,7 +91,7 @@ export function TemplateGallery({
           </div>
           {group.kind === 'story' && (
             <p className="template-note">
-              来信与灯塔使用相同的解谜路线，人物、任务道具和故事不同；小屋侧重对话选择。
+              来信练习推箱与交付，灯塔练习两个条件共同开门，小屋用对话选择写出不同结局。
             </p>
           )}
         </section>

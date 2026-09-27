@@ -19,7 +19,7 @@ export const TEMPLATE_INFO: Record<
   },
   'moving-bridge': {
     title: '会移动的桥',
-    description: '按下开关，搭上小桥，走向另一边的灯火。',
+    description: '等小桥靠岸，搭桥过溪，再用开关打开前方的门。',
     kind: 'platformer',
   },
   'rooftop-secret': {
@@ -34,7 +34,7 @@ export const TEMPLATE_INFO: Record<
   },
   lighthouse: {
     title: '找回灯塔的光',
-    description: '找到电池，帮助守灯人照亮回家的路。',
+    description: '点亮两处电源，取出电池，帮助守灯人照亮归途。',
     kind: 'story',
   },
   'secret-home': {
@@ -95,7 +95,7 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
         kind: 'sign',
         x: 3,
         y: 13,
-        text: '方向键或 A / D 移动，空格跳跃。按住会跳得更高，E 阅读路牌。',
+        text: '方向键或 A / D 移动，空格跳跃，按住会跳得更高。弹簧会自动把你弹起；邮票可以自由收集。走到灯笼开关旁按 E，就能打开前面的门。',
       },
       { id: 'stamp-1', kind: 'collectible', x: 9, y: 10, name: '屋顶邮票' },
       { id: 'stamp-2', kind: 'collectible', x: 14, y: 8, name: '云朵邮票' },
@@ -116,29 +116,100 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
       { id: 'tree-a', kind: 'decoration', x: 4, y: 10, width: 2, height: 4, skin: 'tree' },
       { id: 'flower-a', kind: 'decoration', x: 21, y: 13, skin: 'flower' },
     ];
-    if (id === 'moving-bridge')
+    if (id === 'moving-bridge') {
+      r.name = '溪谷往返小桥';
+      r.tiles = r.tiles.filter((t) => t.kind === 'solid' && (t.x <= 15 || t.x >= 26));
+      r.objects = r.objects.filter((o) => !['collectible', 'spring'].includes(o.kind));
+      r.objects.find((o) => o.id === 'intro')!.text =
+        '小桥会自己往返。等它靠近左岸，跳上去站稳；过桥后按 E 操作开关，打开前方的门。跌落会回到检查点。';
+      r.objects.find((o) => o.id === 'rest')!.x = 14;
+      r.objects.find((o) => o.id === 'lantern-switch')!.x = 29;
+      r.objects.find((o) => o.id === 'gate')!.x = 33;
+      r.objects.find((o) => o.id === 'flower-a')!.x = 28;
+      r.objects.find((o) => o.id === 'finish')!.ending =
+        '你找到了小桥的节奏。等一等，也是一种前进。';
       r.objects.push({
         id: 'bridge',
         kind: 'mover',
         x: 16,
         y: 13,
         width: 3,
-        route: { x: 20, y: 13 },
+        route: { x: 24, y: 13 },
         speed: 'slow',
       });
+    }
     if (id === 'rooftop-secret') {
-      for (const o of r.objects) if (o.kind === 'collectible') o.required = true;
-      r.objects.push({
-        id: 'patrol',
-        kind: 'patrol',
-        x: 19,
-        y: 13,
-        route: { x: 22, y: 13 },
-        speed: 'slow',
-        skin: 'mushroom',
-      });
-      r.objects.find((o) => o.id === 'finish')!.ending =
-        '三枚星星亮起来了。原来，屋顶也有自己的星空。';
+      r.name = '星光屋顶';
+      r.width = 30;
+      r.height = 18;
+      doc.start = { roomId: r.id, x: 2, y: 14 };
+      r.tiles = [];
+      for (let x = 0; x < 30; x++)
+        for (let y = 16; y < 18; y++) r.tiles.push({ x, y, kind: 'solid' });
+      for (const [left, top] of [
+        [5, 13],
+        [10, 11],
+        [16, 13],
+        [21, 11],
+      ])
+        for (let x = left; x < left + 4; x++) r.tiles.push({ x, y: top, kind: 'oneway' });
+      r.objects = [
+        {
+          id: 'intro',
+          kind: 'sign',
+          x: 3,
+          y: 15,
+          text: '三处屋檐藏着三枚必需星星。先去左屋檐，再登中央屋顶，最后绕到右边。按住空格能跳得更高。',
+        },
+        { id: 'stamp-1', kind: 'collectible', x: 7, y: 12, name: '左屋檐星星', required: true },
+        { id: 'stamp-2', kind: 'collectible', x: 12, y: 10, name: '中央屋顶星星', required: true },
+        { id: 'stamp-3', kind: 'collectible', x: 23, y: 10, name: '右屋檐星星', required: true },
+        { id: 'rest', kind: 'checkpoint', x: 14, y: 15, name: '屋檐下的营地' },
+        {
+          id: 'hint',
+          kind: 'sign',
+          x: 17,
+          y: 12,
+          text: '还缺一枚？从这处矮屋顶，向右边更高的屋檐跳过去。',
+        },
+        {
+          id: 'patrol',
+          kind: 'patrol',
+          x: 15,
+          y: 15,
+          route: { x: 19, y: 15 },
+          speed: 'slow',
+          skin: 'mushroom',
+        },
+        {
+          id: 'finish',
+          kind: 'goal',
+          x: 28,
+          y: 15,
+          ending: '三枚星星亮起来了。原来，屋顶也有自己的星空。',
+        },
+        { id: 'home', kind: 'decoration', x: 25, y: 13, width: 3, height: 3, skin: 'house' },
+        { id: 'tree-a', kind: 'decoration', x: 1, y: 12, width: 2, height: 4, skin: 'tree' },
+        { id: 'roof-house-a', kind: 'decoration', x: 5, y: 13, width: 4, height: 3, skin: 'house' },
+        {
+          id: 'roof-house-b',
+          kind: 'decoration',
+          x: 10,
+          y: 11,
+          width: 4,
+          height: 5,
+          skin: 'house',
+        },
+        {
+          id: 'roof-house-c',
+          kind: 'decoration',
+          x: 21,
+          y: 11,
+          width: 4,
+          height: 5,
+          skin: 'house',
+        },
+      ];
     }
     return doc;
   }
@@ -180,7 +251,48 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
     { id: 'tree', kind: 'decoration', x: 12, y: 2, width: 2, height: 3, skin: 'tree' },
   ];
   for (let y = 1; y < 11; y++) if (y !== 7) garden.tiles.push({ x: 9, y, kind: 'solid' });
+  if (id === 'lighthouse') {
+    garden.name = '海岸机房';
+    garden.ground = 'stone';
+    doc.theme = 'dusk';
+    doc.music = 'night';
+    garden.objects = garden.objects.filter(
+      (o) => !['crate', 'plate', 'flower', 'garden-mushroom', 'tree'].includes(o.id),
+    );
+    garden.objects.find((o) => o.id === 'gift')!.x = 12;
+    garden.objects.find((o) => o.id === 'gift')!.y = 4;
+    garden.objects.find((o) => o.id === 'door')!.condition = {
+      mode: 'all',
+      sources: ['power-north', 'power-south'],
+    };
+    garden.objects.find((o) => o.id === 'welcome')!.text =
+      '两台电源都亮起来，电池仓门才会打开。去上面和下面找开关，在旁边按 E。拿到电池后，把它交给灯塔的守灯人。';
+    garden.objects.push(
+      { id: 'power-north', kind: 'switch', x: 4, y: 3, name: '北侧电源' },
+      { id: 'power-south', kind: 'switch', x: 7, y: 9, name: '南侧电源' },
+      {
+        id: 'battery-sign',
+        kind: 'sign',
+        x: 12,
+        y: 3,
+        text: '电池在这里。仓门由两处电源共同控制，找到电池后从右侧小门去灯塔。',
+      },
+    );
+  }
+  if (id === 'forest-letter')
+    garden.objects.push({
+      id: 'box-hint',
+      kind: 'sign',
+      x: 5,
+      y: 5,
+      text: '你离开石板，门就会关。让箱子留在石板上吧！推错时按 Z 撤销一步。',
+    });
   if (id === 'secret-home') {
+    garden.objects = garden.objects.filter((o) => !['crate', 'plate', 'door'].includes(o.id));
+    garden.tiles = garden.tiles.filter((t) => t.x !== 9 || t.y === 0 || t.y === garden.height - 1);
+    garden.objects.find((o) => o.id === 'gift')!.required = false;
+    garden.objects.find((o) => o.id === 'welcome')!.text =
+      '欢迎做客。去和右边的小猫聊聊吧。你可以带一封信，也可以两手空空来听故事；不同选择会留下不同的结局。';
     doc.flags = ['stayed'];
     garden.objects.push(
       {
@@ -193,7 +305,8 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
         dialogue: [
           {
             id: 'hello',
-            text: '欢迎来我的小屋。你想在这里做什么？',
+            condition: { mode: 'all', sources: ['gift'] },
+            text: '欢迎来我的小屋。你带来了一封信！想在这里做什么？',
             choices: [
               {
                 label: '一起看星星',
@@ -206,6 +319,20 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
                 setFlag: 'stayed',
                 ending: '信静静躺在桌上。明天，会有人带着新的故事来。',
               },
+              { label: '我想再逛逛小屋', setFlag: 'stayed' },
+            ],
+          },
+          {
+            id: 'welcome-empty',
+            text: '不带礼物也欢迎你。一起看看窗外吧？',
+            choices: [
+              {
+                label: '一起看星星',
+                setFlag: 'stayed',
+                ending: '我们把灯关小，一起听见了星星的声音。',
+              },
+              { label: '我去找一份礼物' },
+              { label: '我想再逛逛小屋', setFlag: 'stayed' },
             ],
           },
         ],
@@ -213,6 +340,7 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
       {
         id: 'home-end',
         kind: 'goal',
+        condition: { mode: 'all', sources: ['flag:stayed'] },
         x: 13,
         y: 8,
         ending: '谢谢你来做客。也去做一间属于你的小屋吧！',
@@ -229,7 +357,7 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
       kind: 'portal',
       x: 13,
       y: 7,
-      name: '去森林',
+      name: id === 'lighthouse' ? '去灯塔' : '去森林',
       target: { roomId: forest.id, x: 2, y: 7 },
     });
     const friend: WorldObject = {
@@ -266,7 +394,7 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
           id: 'waiting',
           text:
             id === 'lighthouse'
-              ? '灯塔还缺一块电池。听说花园里有一块。'
+              ? '灯塔还缺一块电池。点亮机房的两台电源，就能打开电池仓。'
               : '我在等一封信。你在花园里见过它吗？',
           choices: [],
         },

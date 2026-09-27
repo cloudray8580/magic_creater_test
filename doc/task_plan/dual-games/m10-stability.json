@@ -1,0 +1,863 @@
+{
+  "commit": "2c33e1946277a7ee7383ec4daabfdb3db8e0a23a",
+  "frontendIndexSha256": "2c43c481616614675601c7d35846487ab1dae86e862017fc3bbff74c6da431c0",
+  "host": "i7-11700",
+  "viewport": "1440x1000",
+  "requiredDurationMs": 1800000,
+  "isolatedData": true,
+  "samples": [
+    {
+      "cycle": 0,
+      "game": "platformer",
+      "elapsedMs": 10873,
+      "retainedHeapMiB": 11.184185028076172,
+      "domNodes": 1232,
+      "documents": 27,
+      "jsEventListeners": 679
+    },
+    {
+      "cycle": 1,
+      "game": "story",
+      "elapsedMs": 31121,
+      "retainedHeapMiB": 7.946109771728516,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 421
+    },
+    {
+      "cycle": 2,
+      "game": "platformer",
+      "elapsedMs": 51732,
+      "retainedHeapMiB": 11.623249053955078,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 681
+    },
+    {
+      "cycle": 3,
+      "game": "story",
+      "elapsedMs": 71857,
+      "retainedHeapMiB": 8.119194030761719,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 423
+    },
+    {
+      "cycle": 4,
+      "game": "platformer",
+      "elapsedMs": 92500,
+      "retainedHeapMiB": 11.882698059082031,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 683
+    },
+    {
+      "cycle": 5,
+      "game": "story",
+      "elapsedMs": 112865,
+      "retainedHeapMiB": 8.378631591796875,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 425
+    },
+    {
+      "cycle": 6,
+      "game": "platformer",
+      "elapsedMs": 133461,
+      "retainedHeapMiB": 11.975975036621094,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 685
+    },
+    {
+      "cycle": 7,
+      "game": "story",
+      "elapsedMs": 153714,
+      "retainedHeapMiB": 8.431259155273438,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 427
+    },
+    {
+      "cycle": 8,
+      "game": "platformer",
+      "elapsedMs": 174327,
+      "retainedHeapMiB": 12.202655792236328,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 687
+    },
+    {
+      "cycle": 9,
+      "game": "story",
+      "elapsedMs": 194543,
+      "retainedHeapMiB": 8.667896270751953,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 429
+    },
+    {
+      "cycle": 10,
+      "game": "platformer",
+      "elapsedMs": 215054,
+      "retainedHeapMiB": 12.255821228027344,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 689
+    },
+    {
+      "cycle": 11,
+      "game": "story",
+      "elapsedMs": 235125,
+      "retainedHeapMiB": 8.175670623779297,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 431
+    },
+    {
+      "cycle": 12,
+      "game": "platformer",
+      "elapsedMs": 255688,
+      "retainedHeapMiB": 11.775123596191406,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 691
+    },
+    {
+      "cycle": 13,
+      "game": "story",
+      "elapsedMs": 275790,
+      "retainedHeapMiB": 8.22137451171875,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 433
+    },
+    {
+      "cycle": 14,
+      "game": "platformer",
+      "elapsedMs": 296354,
+      "retainedHeapMiB": 11.801094055175781,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 693
+    },
+    {
+      "cycle": 15,
+      "game": "story",
+      "elapsedMs": 316539,
+      "retainedHeapMiB": 8.296077728271484,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 435
+    },
+    {
+      "cycle": 16,
+      "game": "platformer",
+      "elapsedMs": 337067,
+      "retainedHeapMiB": 11.865650177001953,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 695
+    },
+    {
+      "cycle": 17,
+      "game": "story",
+      "elapsedMs": 357237,
+      "retainedHeapMiB": 8.330581665039062,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 437
+    },
+    {
+      "cycle": 18,
+      "game": "platformer",
+      "elapsedMs": 377782,
+      "retainedHeapMiB": 11.902252197265625,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 697
+    },
+    {
+      "cycle": 19,
+      "game": "story",
+      "elapsedMs": 397868,
+      "retainedHeapMiB": 8.348430633544922,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 439
+    },
+    {
+      "cycle": 20,
+      "game": "platformer",
+      "elapsedMs": 418380,
+      "retainedHeapMiB": 11.912460327148438,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 699
+    },
+    {
+      "cycle": 21,
+      "game": "story",
+      "elapsedMs": 438551,
+      "retainedHeapMiB": 8.358562469482422,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 441
+    },
+    {
+      "cycle": 22,
+      "game": "platformer",
+      "elapsedMs": 459113,
+      "retainedHeapMiB": 11.923599243164062,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 701
+    },
+    {
+      "cycle": 23,
+      "game": "story",
+      "elapsedMs": 479301,
+      "retainedHeapMiB": 8.361881256103516,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 443
+    },
+    {
+      "cycle": 24,
+      "game": "platformer",
+      "elapsedMs": 499828,
+      "retainedHeapMiB": 11.918975830078125,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 701
+    },
+    {
+      "cycle": 25,
+      "game": "story",
+      "elapsedMs": 520030,
+      "retainedHeapMiB": 8.37674331665039,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 445
+    },
+    {
+      "cycle": 26,
+      "game": "platformer",
+      "elapsedMs": 540543,
+      "retainedHeapMiB": 11.948844909667969,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 703
+    },
+    {
+      "cycle": 27,
+      "game": "story",
+      "elapsedMs": 560730,
+      "retainedHeapMiB": 8.389118194580078,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 447
+    },
+    {
+      "cycle": 28,
+      "game": "platformer",
+      "elapsedMs": 581243,
+      "retainedHeapMiB": 12.083690643310547,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 707
+    },
+    {
+      "cycle": 29,
+      "game": "story",
+      "elapsedMs": 601313,
+      "retainedHeapMiB": 8.658645629882812,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 449
+    },
+    {
+      "cycle": 30,
+      "game": "platformer",
+      "elapsedMs": 621842,
+      "retainedHeapMiB": 12.255805969238281,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 709
+    },
+    {
+      "cycle": 31,
+      "game": "story",
+      "elapsedMs": 642027,
+      "retainedHeapMiB": 8.694828033447266,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 451
+    },
+    {
+      "cycle": 32,
+      "game": "platformer",
+      "elapsedMs": 662556,
+      "retainedHeapMiB": 12.26022720336914,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 711
+    },
+    {
+      "cycle": 33,
+      "game": "story",
+      "elapsedMs": 682645,
+      "retainedHeapMiB": 8.70062255859375,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 453
+    },
+    {
+      "cycle": 34,
+      "game": "platformer",
+      "elapsedMs": 703187,
+      "retainedHeapMiB": 12.268848419189453,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 713
+    },
+    {
+      "cycle": 35,
+      "game": "story",
+      "elapsedMs": 723260,
+      "retainedHeapMiB": 8.71640396118164,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 455
+    },
+    {
+      "cycle": 36,
+      "game": "platformer",
+      "elapsedMs": 743784,
+      "retainedHeapMiB": 12.283462524414062,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 715
+    },
+    {
+      "cycle": 37,
+      "game": "story",
+      "elapsedMs": 763990,
+      "retainedHeapMiB": 8.7259521484375,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 457
+    },
+    {
+      "cycle": 38,
+      "game": "platformer",
+      "elapsedMs": 784533,
+      "retainedHeapMiB": 12.312385559082031,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 717
+    },
+    {
+      "cycle": 39,
+      "game": "story",
+      "elapsedMs": 804623,
+      "retainedHeapMiB": 8.751083374023438,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 459
+    },
+    {
+      "cycle": 40,
+      "game": "platformer",
+      "elapsedMs": 825115,
+      "retainedHeapMiB": 12.313861846923828,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 719
+    },
+    {
+      "cycle": 41,
+      "game": "story",
+      "elapsedMs": 845187,
+      "retainedHeapMiB": 8.753765106201172,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 459
+    },
+    {
+      "cycle": 42,
+      "game": "platformer",
+      "elapsedMs": 865697,
+      "retainedHeapMiB": 12.318061828613281,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 721
+    },
+    {
+      "cycle": 43,
+      "game": "story",
+      "elapsedMs": 885868,
+      "retainedHeapMiB": 8.762042999267578,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 463
+    },
+    {
+      "cycle": 44,
+      "game": "platformer",
+      "elapsedMs": 906377,
+      "retainedHeapMiB": 12.33151626586914,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 723
+    },
+    {
+      "cycle": 45,
+      "game": "story",
+      "elapsedMs": 926552,
+      "retainedHeapMiB": 8.781135559082031,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 465
+    },
+    {
+      "cycle": 46,
+      "game": "platformer",
+      "elapsedMs": 947079,
+      "retainedHeapMiB": 12.34600830078125,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 725
+    },
+    {
+      "cycle": 47,
+      "game": "story",
+      "elapsedMs": 967281,
+      "retainedHeapMiB": 8.78472900390625,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 467
+    },
+    {
+      "cycle": 48,
+      "game": "platformer",
+      "elapsedMs": 987793,
+      "retainedHeapMiB": 12.344970703125,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 727
+    },
+    {
+      "cycle": 49,
+      "game": "story",
+      "elapsedMs": 1007882,
+      "retainedHeapMiB": 8.788078308105469,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 467
+    },
+    {
+      "cycle": 50,
+      "game": "platformer",
+      "elapsedMs": 1028457,
+      "retainedHeapMiB": 12.345287322998047,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 729
+    },
+    {
+      "cycle": 51,
+      "game": "story",
+      "elapsedMs": 1048545,
+      "retainedHeapMiB": 8.792900085449219,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 471
+    },
+    {
+      "cycle": 52,
+      "game": "platformer",
+      "elapsedMs": 1069072,
+      "retainedHeapMiB": 12.357376098632812,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 731
+    },
+    {
+      "cycle": 53,
+      "game": "story",
+      "elapsedMs": 1089160,
+      "retainedHeapMiB": 8.797786712646484,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 473
+    },
+    {
+      "cycle": 54,
+      "game": "platformer",
+      "elapsedMs": 1109686,
+      "retainedHeapMiB": 12.362785339355469,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 733
+    },
+    {
+      "cycle": 55,
+      "game": "story",
+      "elapsedMs": 1129763,
+      "retainedHeapMiB": 8.801143646240234,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 475
+    },
+    {
+      "cycle": 56,
+      "game": "platformer",
+      "elapsedMs": 1150286,
+      "retainedHeapMiB": 12.36712646484375,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 735
+    },
+    {
+      "cycle": 57,
+      "game": "story",
+      "elapsedMs": 1170493,
+      "retainedHeapMiB": 8.805770874023438,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 477
+    },
+    {
+      "cycle": 58,
+      "game": "platformer",
+      "elapsedMs": 1191035,
+      "retainedHeapMiB": 12.368976593017578,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 737
+    },
+    {
+      "cycle": 59,
+      "game": "story",
+      "elapsedMs": 1211225,
+      "retainedHeapMiB": 8.805889129638672,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 479
+    },
+    {
+      "cycle": 60,
+      "game": "platformer",
+      "elapsedMs": 1231733,
+      "retainedHeapMiB": 12.369075775146484,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 739
+    },
+    {
+      "cycle": 61,
+      "game": "story",
+      "elapsedMs": 1251839,
+      "retainedHeapMiB": 8.81447982788086,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 481
+    },
+    {
+      "cycle": 62,
+      "game": "platformer",
+      "elapsedMs": 1272366,
+      "retainedHeapMiB": 12.37945556640625,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 741
+    },
+    {
+      "cycle": 63,
+      "game": "story",
+      "elapsedMs": 1292436,
+      "retainedHeapMiB": 8.835201263427734,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 483
+    },
+    {
+      "cycle": 64,
+      "game": "platformer",
+      "elapsedMs": 1312966,
+      "retainedHeapMiB": 12.395801544189453,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 743
+    },
+    {
+      "cycle": 65,
+      "game": "story",
+      "elapsedMs": 1333136,
+      "retainedHeapMiB": 8.836414337158203,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 483
+    },
+    {
+      "cycle": 66,
+      "game": "platformer",
+      "elapsedMs": 1353663,
+      "retainedHeapMiB": 12.398933410644531,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 745
+    },
+    {
+      "cycle": 67,
+      "game": "story",
+      "elapsedMs": 1373756,
+      "retainedHeapMiB": 8.8427734375,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 487
+    },
+    {
+      "cycle": 68,
+      "game": "platformer",
+      "elapsedMs": 1394276,
+      "retainedHeapMiB": 12.403961181640625,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 747
+    },
+    {
+      "cycle": 69,
+      "game": "story",
+      "elapsedMs": 1414350,
+      "retainedHeapMiB": 8.848182678222656,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 487
+    },
+    {
+      "cycle": 70,
+      "game": "platformer",
+      "elapsedMs": 1434893,
+      "retainedHeapMiB": 12.422687530517578,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 749
+    },
+    {
+      "cycle": 71,
+      "game": "story",
+      "elapsedMs": 1455081,
+      "retainedHeapMiB": 8.859748840332031,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 491
+    },
+    {
+      "cycle": 72,
+      "game": "platformer",
+      "elapsedMs": 1475623,
+      "retainedHeapMiB": 12.422710418701172,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 749
+    },
+    {
+      "cycle": 73,
+      "game": "story",
+      "elapsedMs": 1495732,
+      "retainedHeapMiB": 8.86422348022461,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 493
+    },
+    {
+      "cycle": 74,
+      "game": "platformer",
+      "elapsedMs": 1516257,
+      "retainedHeapMiB": 12.426658630371094,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 753
+    },
+    {
+      "cycle": 75,
+      "game": "story",
+      "elapsedMs": 1536346,
+      "retainedHeapMiB": 8.865676879882812,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 495
+    },
+    {
+      "cycle": 76,
+      "game": "platformer",
+      "elapsedMs": 1556889,
+      "retainedHeapMiB": 12.429691314697266,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 755
+    },
+    {
+      "cycle": 77,
+      "game": "story",
+      "elapsedMs": 1576978,
+      "retainedHeapMiB": 8.871009826660156,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 497
+    },
+    {
+      "cycle": 78,
+      "game": "platformer",
+      "elapsedMs": 1597508,
+      "retainedHeapMiB": 12.434085845947266,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 757
+    },
+    {
+      "cycle": 79,
+      "game": "story",
+      "elapsedMs": 1617617,
+      "retainedHeapMiB": 8.871833801269531,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 499
+    },
+    {
+      "cycle": 80,
+      "game": "platformer",
+      "elapsedMs": 1638136,
+      "retainedHeapMiB": 12.434345245361328,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 759
+    },
+    {
+      "cycle": 81,
+      "game": "story",
+      "elapsedMs": 1658212,
+      "retainedHeapMiB": 8.876598358154297,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 501
+    },
+    {
+      "cycle": 82,
+      "game": "platformer",
+      "elapsedMs": 1678770,
+      "retainedHeapMiB": 12.44765853881836,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 761
+    },
+    {
+      "cycle": 83,
+      "game": "story",
+      "elapsedMs": 1698962,
+      "retainedHeapMiB": 8.884967803955078,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 503
+    },
+    {
+      "cycle": 84,
+      "game": "platformer",
+      "elapsedMs": 1719499,
+      "retainedHeapMiB": 12.454547882080078,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 763
+    },
+    {
+      "cycle": 85,
+      "game": "story",
+      "elapsedMs": 1739573,
+      "retainedHeapMiB": 8.89974594116211,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 505
+    },
+    {
+      "cycle": 86,
+      "game": "platformer",
+      "elapsedMs": 1760096,
+      "retainedHeapMiB": 12.462333679199219,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 765
+    },
+    {
+      "cycle": 87,
+      "game": "story",
+      "elapsedMs": 1780190,
+      "retainedHeapMiB": 8.900382995605469,
+      "domNodes": 1238,
+      "documents": 31,
+      "jsEventListeners": 507
+    },
+    {
+      "cycle": 88,
+      "game": "platformer",
+      "elapsedMs": 1800730,
+      "retainedHeapMiB": 12.459537506103516,
+      "domNodes": 1233,
+      "documents": 27,
+      "jsEventListeners": 767
+    }
+  ],
+  "errors": [],
+  "browser": "153.0.8010.12",
+  "startedAt": "2026-09-27T15:29:27.447Z",
+  "elapsedMs": 1810737,
+  "byGame": {
+    "platformer": {
+      "cycles": 42,
+      "retainedHeapGrowthMiB": 0.4835624694824219,
+      "first": {
+        "cycle": 6,
+        "game": "platformer",
+        "elapsedMs": 133461,
+        "retainedHeapMiB": 11.975975036621094,
+        "domNodes": 1233,
+        "documents": 27,
+        "jsEventListeners": 685
+      },
+      "last": {
+        "cycle": 88,
+        "game": "platformer",
+        "elapsedMs": 1800730,
+        "retainedHeapMiB": 12.459537506103516,
+        "domNodes": 1233,
+        "documents": 27,
+        "jsEventListeners": 767
+      }
+    },
+    "story": {
+      "cycles": 41,
+      "retainedHeapGrowthMiB": 0.46912384033203125,
+      "first": {
+        "cycle": 7,
+        "game": "story",
+        "elapsedMs": 153714,
+        "retainedHeapMiB": 8.431259155273438,
+        "domNodes": 1238,
+        "documents": 31,
+        "jsEventListeners": 427
+      },
+      "last": {
+        "cycle": 87,
+        "game": "story",
+        "elapsedMs": 1780190,
+        "retainedHeapMiB": 8.900382995605469,
+        "domNodes": 1238,
+        "documents": 31,
+        "jsEventListeners": 507
+      }
+    }
+  },
+  "retainedHeapGrowthMiB": 0.4835624694824219,
+  "status": "passed"
+}

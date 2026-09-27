@@ -102,3 +102,17 @@ bash scripts/rollback-user.sh "$HOME/.local/share/magic-creater/upgrades/对应�
 回滚会停服务，先保留当前数据为同目录的 `displaced-*.sqlite` 再恢复原快照。上线后新增的作品不会自动合并进旧schema，需要人工恢复现场副本。升级状态快照不受每日14天清理规则删除，确认无需回滚后由维护者安排清理。不要只切旧release却继续使用schema3的DB。
 
 `verify-upgrade` 验证临时DB迁移、旧列摘要、图片字节/来源/位置恢复及旧程序配对恢复；它不操作systemd。`verify-deployment` 在真实服务验证登录会话经重启仍有效、前端入口/资源与release一致，再对实际每日备份的临时恢复副本验证登录、完整性、schema和迁移前数据摘要。测试图片/作品仅写临时副本，不写真实服务。
+
+
+## 每版操作演示与发布
+
+M8开始，每次正式部署必须附约一分钟视频。流程：
+
+1. 完成开发和独立只读review、差异覆盖率与真实浏览器闭环；全部使用临时数据。
+2. 提交代码与录制脚本，再运行 `npm run build`。M10容量/性能工具分别为 `scripts/benchmark-worlds.mjs`、`scripts/benchmark-app.mjs`；长时间释放验证为 `scripts/stability-worlds.mjs`（真实30分钟）。测性能时避免并行UT/E2E/录像占用CPU；记录浏览器、窗口、源码提交、构建摘要和测量边界。
+3. 在 `scripts/record-release.mjs` 给新版本写对应操作分镜，再 `node scripts/record-release.mjs VERSION`。当前M8/M9/M10有各自分镜，未来版本必须更新分支，不能只改版本号复用旧内容。使用临时数据库和虚构账号录真实操作，原始WebM及MP4在被Git忽略的 `artifacts/releases/VERSION/`。
+4. 验证55–75秒、1440×1000、清晰字幕、真实操作与可见结果；抽帧检查编辑、试玩和结局。`manifest.json`记录视频提交、时长与SHA256。将字幕和manifest副本连同文字说明存入 `doc/releases/`，大视频通过Release附件共享，不塞入Git历史。
+5. 升级演练、正式部署、真实服务和备份恢复核验通过后冻结里程碑；squash main并push，tag指向录像/部署的代码提交，GitHub Release使用同版本说明和MP4/封面/SRT/manifest。证据文档可在部署后追加，业务源码与录像提交必须一致。
+6. 首页链接指向对应release。封闭小组现场试用、其他浏览器与公开发行资格单独验证，不用自动测试替代效果证明。
+
+M8及后续数据库为schema4；回退仍使用配套程序和一致性快照。M9程序不接受M10超过512×64的作品，所以不要仅替换程序而保留包含新超大作品的数据。

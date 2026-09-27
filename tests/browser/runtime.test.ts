@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mountAdventure, type GameControls } from '../../src/client/adventure/renderer.js';
 import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 import type { GameFrame } from '../../src/client/adventure/view.js';
@@ -198,7 +198,7 @@ for (const kind of ['moving-bridge', 'rooftop-secret'] as const)
       });
       await expect.poll(() => f?.room.id).toBe('trail');
       controls.pause(false);
-      await expect.poll(() => f?.hero.y).toBe(14);
+      await expect.poll(() => f?.hero.y).toBe(kind === 'rooftop-secret' ? 16 : 14);
       const go = async (target: number, jump = false) => {
         if (jump) controls!.key('Space', true);
         controls!.key('ArrowRight', true);
@@ -210,32 +210,48 @@ for (const kind of ['moving-bridge', 'rooftop-secret'] as const)
         await delay(1400);
         controls!.key('Space', false);
       };
-      await go(6.5);
-      await go(9.3, true);
-      expect(f!.collected).toBe(1);
-      expect(f!.hero.y).toBe(11);
-      await go(14.3, true);
-      expect(f!.collected).toBe(2);
-      expect(f!.hero.y).toBe(9);
-      if (kind === 'rooftop-secret') {
-        await go(17.8);
+      if (kind === 'moving-bridge') {
+        await go(14.3);
         await expect
-          .poll(() => f!.objects.find((o) => o.id === 'patrol')!.x, { timeout: 9000, interval: 16 })
-          .toBeLessThan(20);
+          .poll(() => f!.objects.find((o) => o.id === 'bridge')!.x, {
+            timeout: 18000,
+            interval: 16,
+          })
+          .toBeLessThanOrEqual(18.8);
+        await go(18.2, true);
+        await expect.poll(() => f!.hero.y).toBe(13);
+        const carriedFrom = f!.hero.x;
+        await delay(3500);
+        expect(f!.hero.x - carriedFrom).toBeGreaterThan(2.7);
+        await expect
+          .poll(() => f!.objects.find((o) => o.id === 'bridge')!.x, {
+            timeout: 12000,
+            interval: 16,
+          })
+          .toBeGreaterThanOrEqual(24.5);
+        await go(29.3, true);
+        controls.key('KeyE', true);
+        controls.key('KeyE', false);
+        await expect.poll(() => f!.objects.find((o) => o.id === 'gate')?.texture).toBe('door-open');
+      } else {
+        await go(5.5);
+        await go(7.5, true);
+        expect(f!.collected).toBe(1);
+        expect(f!.hero.y).toBe(13);
+        await go(12.5, true);
+        expect(f!.collected).toBe(2);
+        expect(f!.hero.y).toBe(11);
+        await go(18.5, true);
+        await go(23.5, true);
+        expect(f!.collected).toBe(3);
       }
-      await go(24.3, true);
-      controls.key('KeyE', true);
-      controls.key('KeyE', false);
-      await expect.poll(() => f!.objects.find((o) => o.id === 'gate')?.texture).toBe('door-open');
-      await go(27.3, true);
-      expect(f!.collected).toBe(3);
       controls.key('ArrowRight', true);
       await expect.poll(() => f!.ending, { timeout: 5000 }).toBeTruthy();
       controls.key('ArrowRight', false);
       expect(f!.deaths).toBe(0);
       expect(errors).toEqual([]);
     },
-    40000,
+    55000,
   );
 
 it('keeps the cottage window visible outside the opaque floor of the original story template', async () => {
@@ -303,3 +319,24 @@ it('shows the hero in the first rendered frame after a long-distance respawn and
     controls.pause(false);
   }
 }, 20000);
+
+it('repeated scenes do not register unused native wheel listeners on pooled canvases', async () => {
+  const listen = vi.spyOn(HTMLCanvasElement.prototype, 'addEventListener');
+  try {
+    for (let i = 0; i < 3; i++) {
+      const view = start(i % 2 ? 'forest-letter' : 'cloud-post');
+      await expect.poll(() => view.frame()?.room.id).toBe(i % 2 ? 'garden' : 'trail');
+      controls!.pause(false);
+      controls!.key('ArrowRight', true);
+      await delay(100);
+      controls!.key('ArrowRight', false);
+      controls!.destroy();
+      controls = undefined;
+      await expect.poll(() => host.querySelectorAll('canvas').length).toBe(0);
+      host.remove();
+    }
+    expect(listen.mock.calls.filter(([type]) => type === 'wheel')).toHaveLength(0);
+  } finally {
+    listen.mockRestore();
+  }
+});
