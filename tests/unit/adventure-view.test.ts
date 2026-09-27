@@ -45,3 +45,14 @@ describe('game presentation from authoritative runtime state', () => {
     expect(frame.mode).toBe('story');
   });
 });
+
+it('uses an available default picture for a decoration without a chosen skin', () => {
+  for (const template of ['cloud-post', 'forest-letter'] as const) {
+    const doc = adventureTemplate(template);
+    const decoration = doc.rooms[0].objects.find((o) => o.kind === 'decoration')!;
+    delete decoration.skin;
+    const frame =
+      doc.gameType === 'story' ? frameStory(startStory(doc)) : framePlatform(startPlatform(doc));
+    expect(frame.objects.find((o) => o.id === decoration.id)!.texture).toBe('tree');
+  }
+});

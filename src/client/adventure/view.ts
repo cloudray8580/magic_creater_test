@@ -50,7 +50,7 @@ function visual(o: WorldObject, texture = o.skin ?? o.kind): VisualObject {
     height = o.height ?? 1;
   return {
     id: o.id,
-    texture,
+    texture: texture === 'decoration' ? 'tree' : texture,
     x: o.x + width / 2,
     y: o.y + height,
     width,

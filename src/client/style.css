@@ -875,3 +875,47 @@ select {
     grid-template-columns: repeat(6, 1fr);
   }
 }
+
+.story-dialogues {
+  margin-top: 16px;
+}
+.dialogue-page {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #d8dfce;
+  border-radius: 12px;
+  background: #faf9f0;
+}
+.dialogue-page summary {
+  cursor: pointer;
+  color: #285746;
+  font-weight: 700;
+  padding: 4px 0;
+}
+.story-choice {
+  border: 1px dashed #b8cbbd;
+  border-radius: 8px;
+  margin: 12px 0;
+  padding: 8px;
+}
+.story-choice legend {
+  color: #426f5c;
+  font-size: 12px;
+}
+.story-flag {
+  border-top: 1px solid #e1e7dc;
+  padding-top: 8px;
+}
+.condition-editor button {
+  white-space: normal;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.portal-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #fbebc5;
+  border-radius: 8px;
+}

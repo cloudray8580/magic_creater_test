@@ -412,17 +412,15 @@ export function App() {
                 <h1>今天，创造一点什么？</h1>
                 <p>从一个小花园开始。放置、尝试、修改，再邀请同伴来探索。</p>
                 <div className="row">
-                  {TEMPLATE_IDS.filter((id) => TEMPLATE_INFO[id].kind === 'platformer').map(
-                    (id) => (
-                      <button
-                        key={id}
-                        className="primary"
-                        onClick={() => void action(() => create(adventureTemplate(id)))}
-                      >
-                        创作{TEMPLATE_INFO[id].title}
-                      </button>
-                    ),
-                  )}
+                  {TEMPLATE_IDS.map((id) => (
+                    <button
+                      key={id}
+                      className="primary"
+                      onClick={() => void action(() => create(adventureTemplate(id)))}
+                    >
+                      创作{TEMPLATE_INFO[id].title}
+                    </button>
+                  ))}
                   <button onClick={() => void action(() => create(template()))}>
                     从月光花园开始
                   </button>

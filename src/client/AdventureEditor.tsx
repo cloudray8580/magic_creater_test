@@ -1,4 +1,8 @@
-import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { flushSync } from 'react-dom';
+import { updateDialoguePage } from '../shared/adventure/story-editor.js';
+import { NumberInput } from './EditorInputs.js';
+import { ConditionEditor, StoryObjectPanel, StoryWorldPanel } from './StoryPanels.js';
+import { useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import {
   BUILTIN_SKINS,
   type AdventureDocument,
@@ -84,6 +88,7 @@ const STORY_TOOLS = [
 ] as PaintTool[];
 const DECOR = ['tree', 'flower', 'house', 'lamp', 'mushroom', 'bench', 'rock'] as PaintTool[];
 function texture(tool: string) {
+  if (tool === 'decoration') return 'tree';
   return tool === 'solid'
     ? 'grass-edge'
     : tool === 'patrol'
@@ -91,39 +96,6 @@ function texture(tool: string) {
       : tool === 'npc'
         ? 'cat'
         : tool;
-}
-function NumberInput({
-  value,
-  onCommit,
-  min,
-  max,
-}: {
-  value: number;
-  onCommit: (value: number) => void;
-  min?: number;
-  max?: number;
-}) {
-  const [text, setText] = useState(String(value));
-  useEffect(() => setText(String(value)), [value]);
-  return (
-    <input
-      type="number"
-      value={text}
-      min={min}
-      max={max}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={() => {
-        if (text.trim() && Number(text) !== value) onCommit(Number(text));
-        setText(String(value));
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          e.currentTarget.blur();
-        }
-      }}
-    />
-  );
 }
 interface Props {
   document: AdventureDocument;
@@ -150,7 +122,7 @@ export function AdventureEditor({
     [zoom, setZoom] = useState(0.9),
     [notice, setNotice] = useState('选一个素材，再把它放进世界。');
   const [draft, setDraft] = useState<AdventureDocument>(),
-    [pick, setPick] = useState<'route' | 'condition' | null>(null),
+    [pick, setPick] = useState<'route' | 'condition' | { pageId: string } | null>(null),
     [cursor, setCursor] = useState<Cell>({ x: 2, y: 2 }),
     [previewCell, setPreviewCell] = useState<Cell>({ x: 2, y: 2 });
   const scroll = useRef<HTMLDivElement>(null),
@@ -158,10 +130,15 @@ export function AdventureEditor({
   const stroke = useRef<{ next: AdventureDocument; last: Cell } | null>(null),
     drag = useRef<{ id: string; start: Cell; offset: Cell } | null>(null);
   const pan = useRef<{ x: number; y: number; left: number; top: number } | null>(null);
+  const [portalPick, setPortalPick] = useState<{ objectId: string; returnRoom: string } | null>(
+    null,
+  );
   const gridId = useId();
   const current = draft ?? doc,
     room = current.rooms.find((r) => r.id === roomId) ?? current.rooms[0];
   const object = room.objects.find((o) => o.id === selected);
+  const latest = useRef({ doc, room });
+  latest.current = { doc, room };
   function safely(work: () => void) {
     try {
       work();
@@ -171,6 +148,14 @@ export function AdventureEditor({
   }
   function change(work: () => AdventureDocument) {
     safely(() => onChange(work()));
+  }
+  function selectRoom(id: string) {
+    setRoomId(id);
+    setSelected('');
+    setPortalPick(null);
+    setPick(null);
+    setCursor({ x: 2, y: 2 });
+    setPreviewCell({ x: 2, y: 2 });
   }
   function choose(next: PaintTool | 'select') {
     setTool(next);
@@ -185,6 +170,7 @@ export function AdventureEditor({
     );
   }
   function point(e: ReactPointerEvent<SVGSVGElement>): Cell {
+    const room = latest.current.room;
     const bounds = e.currentTarget.getBoundingClientRect();
     return {
       x: Math.floor(((e.clientX - bounds.left) / bounds.width) * room.width),
@@ -193,7 +179,7 @@ export function AdventureEditor({
   }
 
   function hit(p: Cell): WorldObject | undefined {
-    return [...room.objects]
+    return [...latest.current.room.objects]
       .reverse()
       .find(
         (o) =>
@@ -226,7 +212,12 @@ export function AdventureEditor({
   }
   function pointerDown(e: ReactPointerEvent<SVGSVGElement>) {
     e.preventDefault();
-    e.currentTarget.focus({ preventScroll: true });
+    // Commit any focused property before the map captures the next editing snapshot.
+    const canvas = e.currentTarget;
+    flushSync(() => canvas.focus({ preventScroll: true }));
+    const currentDoc = latest.current.doc,
+      currentRoom = latest.current.room;
+    const currentObject = currentRoom.objects.find((o) => o.id === selected);
     e.currentTarget.setPointerCapture(e.pointerId);
     if (e.button === 1 || e.altKey) {
       const s = scroll.current!;
@@ -237,10 +228,22 @@ export function AdventureEditor({
     const p = point(e);
     setCursor(p);
     setPreviewCell(p);
-    if (pick && object) {
-      if (pick === 'route') change(() => updateObject(doc, object.id, { route: p }));
+    if (portalPick) {
+      safely(() => {
+        const next = updateObject(currentDoc, portalPick.objectId, {
+          target: { roomId: currentRoom.id, ...p },
+        });
+        onChange(next);
+        selectRoom(portalPick.returnRoom);
+        setSelected(portalPick.objectId);
+        setNotice('已设置落点。试玩时会检查是否能站立。');
+      });
+      return;
+    }
+    if (pick && currentObject) {
+      if (pick === 'route') change(() => updateObject(currentDoc, currentObject.id, { route: p }));
       else {
-        const target = [...room.objects]
+        const target = [...currentRoom.objects]
           .reverse()
           .find(
             (o) =>
@@ -252,16 +255,21 @@ export function AdventureEditor({
           setNotice('请点击开关、压力板或收集物。');
           return;
         }
-        const sources = object.condition?.sources ?? [];
+        const previous =
+          typeof pick === 'object'
+            ? currentObject.dialogue?.find((page) => page.id === pick.pageId)?.condition
+            : currentObject.condition;
+        const sources = previous?.sources ?? [];
+        const condition = {
+          mode: previous?.mode ?? ('all' as const),
+          sources: sources.includes(target.id)
+            ? sources.filter((id) => id !== target.id)
+            : [...sources, target.id],
+        };
         change(() =>
-          updateObject(doc, object.id, {
-            condition: {
-              mode: object.condition?.mode ?? 'all',
-              sources: sources.includes(target.id)
-                ? sources.filter((id) => id !== target.id)
-                : [...sources, target.id],
-            },
-          }),
+          typeof pick === 'object'
+            ? updateDialoguePage(currentDoc, currentObject.id, pick.pageId, { condition })
+            : updateObject(currentDoc, currentObject.id, { condition }),
         );
       }
       setPick(null);
@@ -269,7 +277,10 @@ export function AdventureEditor({
     }
     if (tool === 'select') {
       const o = hit(p);
-      const start = doc.start?.roomId === room.id && doc.start.x === p.x && doc.start.y === p.y;
+      const start =
+        currentDoc.start?.roomId === currentRoom.id &&
+        currentDoc.start.x === p.x &&
+        currentDoc.start.y === p.y;
       const id = o?.id ?? (start ? '@start' : '');
       setSelected(id);
       if (id)
@@ -279,7 +290,7 @@ export function AdventureEditor({
           offset: o ? { x: p.x - o.x, y: p.y - o.y } : { x: 0, y: 0 },
         };
     } else {
-      stroke.current = { next: doc, last: p };
+      stroke.current = { next: currentDoc, last: p };
       draw(p);
     }
   }
@@ -388,14 +399,29 @@ export function AdventureEditor({
             {doc.rooms.map((r) => (
               <button
                 key={r.id}
+                disabled={Boolean(portalPick)}
+                aria-pressed={room.id === r.id}
                 onClick={() => {
-                  setRoomId(r.id);
-                  setSelected('');
+                  selectRoom(r.id);
                 }}
               >
                 {r.name}
               </button>
             ))}
+          </div>
+        )}
+        {portalPick && (
+          <div className="portal-pick">
+            <strong>在这个房间点击门的落点</strong>
+            <button
+              onClick={() => {
+                const prior = portalPick;
+                selectRoom(prior.returnRoom);
+                setSelected(prior.objectId);
+              }}
+            >
+              取消选落点
+            </button>
           </div>
         )}
         <div className="editor-scroll" ref={scroll}>
@@ -437,6 +463,19 @@ export function AdventureEditor({
             }}
           >
             <defs>
+              <pattern
+                id={gridId + '-floor'}
+                width={CELL}
+                height={CELL}
+                patternUnits="userSpaceOnUse"
+              >
+                <image
+                  href={'/art/storybook-v1/' + room.ground + '.svg'}
+                  width={CELL}
+                  height={CELL}
+                  opacity=".65"
+                />
+              </pattern>
               <pattern id={gridId} width={CELL} height={CELL} patternUnits="userSpaceOnUse">
                 <path d={`M${CELL} 0H0V${CELL}`} fill="none" stroke="#638578" strokeOpacity=".22" />
               </pattern>
@@ -444,7 +483,7 @@ export function AdventureEditor({
             <rect
               width="100%"
               height="100%"
-              fill={doc.gameType === 'story' ? '#c5dbc0' : '#d5e8df'}
+              fill={doc.gameType === 'story' ? `url(#${gridId}-floor)` : '#d5e8df'}
             />
             {room.tiles.map((t) => (
               <image
@@ -495,7 +534,12 @@ export function AdventureEditor({
               </g>
             ))}
             {room.objects.flatMap((o) =>
-              (o.condition?.sources ?? []).map((source) => {
+              [
+                ...new Set([
+                  ...(o.condition?.sources ?? []),
+                  ...(o.dialogue ?? []).flatMap((page) => page.condition?.sources ?? []),
+                ]),
+              ].map((source) => {
                 const target = room.objects.find((t) => t.id === source);
                 return target ? (
                   <line
@@ -680,56 +724,19 @@ export function AdventureEditor({
             {['door', 'goal'].includes(object.kind) && (
               <>
                 <h4>开启条件</h4>
-                <label>
-                  条件关系
-                  <select
-                    value={object.condition?.mode ?? 'all'}
-                    onChange={(e) =>
-                      patch({
-                        condition: {
-                          mode: e.target.value as 'all' | 'any',
-                          sources: object.condition?.sources ?? [],
-                        },
-                      })
-                    }
-                  >
-                    <option value="all">全部满足</option>
-                    <option value="any">任意满足</option>
-                  </select>
-                </label>
+                <ConditionEditor
+                  document={doc}
+                  value={object.condition}
+                  onChange={(condition) => patch({ condition })}
+                />
                 <button
                   onClick={() => {
                     setPick('condition');
-                    setNotice('请点击要连接的开关或收集物，再次点击会断开。');
+                    setNotice('请点击要连接的开关、压力板或收集物，再次点击会断开。');
                   }}
                 >
                   在地图上连接机关
                 </button>
-                <p>
-                  {object.condition?.sources.length
-                    ? '已连接：'
-                    : '没有条件：门保持打开，终点只检查必需收集物。'}
-                </p>
-                {object.condition?.sources.map((source) => (
-                  <button
-                    key={source}
-                    onClick={() =>
-                      patch({
-                        condition: {
-                          ...object.condition!,
-                          sources: object.condition!.sources.filter((id) => id !== source),
-                        },
-                      })
-                    }
-                  >
-                    {doc.rooms.flatMap((r) => r.objects).find((o) => o.id === source)?.name ||
-                      NAMES[
-                        doc.rooms.flatMap((r) => r.objects).find((o) => o.id === source)?.kind ?? ''
-                      ] ||
-                      source}{' '}
-                    ×
-                  </button>
-                ))}
               </>
             )}
             {object.kind === 'sign' && (
@@ -751,6 +758,25 @@ export function AdventureEditor({
                   onChange={(e) => patch({ ending: e.target.value })}
                 />
               </label>
+            )}
+            {doc.gameType === 'story' && (
+              <StoryObjectPanel
+                key={object.id}
+                document={doc}
+                object={object}
+                change={change}
+                pickCondition={(pageId) => {
+                  setPick({ pageId });
+                  setNotice('请点击本房间的开关、压力板或收集物，再次连接会断开。');
+                }}
+                pickPortal={(id) => {
+                  setPortalPick({ objectId: object.id, returnRoom: room.id });
+                  setRoomId(id);
+                  setSelected('');
+                  setPick(null);
+                  setNotice('请在目的房间的空闲位置点击。');
+                }}
+              />
             )}
             <button onClick={() => setSelected('')}>查看世界设置</button>
           </>
@@ -841,6 +867,9 @@ export function AdventureEditor({
                 />
               </label>
             </div>
+            {doc.gameType === 'story' && (
+              <StoryWorldPanel document={doc} room={room} change={change} selectRoom={selectRoom} />
+            )}
             <p>先做一小段让人愿意玩的旅程。随时试玩，再回来继续改变它。</p>
           </>
         )}

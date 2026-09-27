@@ -271,3 +271,38 @@ it('allows typing map dimensions digit by digit before committing on blur', asyn
   await act(async () => input.blur());
   expect(latest.rooms[0].width).toBe(50);
 });
+
+it('preserves a pending dimension edit when focusing the map starts a paint stroke', async () => {
+  const canvas = await start();
+  await click('地面');
+  const input = Array.from(host.querySelectorAll('label'))
+    .find((l) => l.firstChild?.textContent === '地图宽度')!
+    .querySelector('input')!;
+  await act(async () => input.focus());
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '50');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await pointer(canvas, 'pointerdown', 0, 3);
+  await pointer(canvas, 'pointerup', 0, 3);
+  expect(latest.rooms[0].width).toBe(50);
+  expect(latest.rooms[0].tiles.some((t) => t.x === 0 && t.y === 3)).toBe(true);
+});
+
+it('selects and drags an object at the new position after committing its focused coordinate', async () => {
+  const canvas = await start();
+  await pointer(canvas, 'pointerdown', 24, 13);
+  await pointer(canvas, 'pointerup', 24, 13);
+  const moved = latest.rooms[0].objects.find((o) => o.x === 24 && o.y === 13)!;
+  const input = Array.from(host.querySelectorAll('label'))
+    .find((l) => l.firstChild?.textContent === '横坐标')!
+    .querySelector('input')!;
+  await act(async () => input.focus());
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '25');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await pointer(canvas, 'pointerdown', 25, 13);
+  await pointer(canvas, 'pointerup', 26, 13);
+  expect(latest.rooms[0].objects.find((o) => o.id === moved.id)!.x).toBe(26);
+});

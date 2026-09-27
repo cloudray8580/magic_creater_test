@@ -93,15 +93,23 @@ function deleteFrom(doc: AdventureDocument, id: string, clearReferences: boolean
       }
     }
 }
+export function removeObjects(
+  doc: AdventureDocument,
+  ids: string[],
+  clearReferences = false,
+): AdventureDocument {
+  const next = structuredClone(doc);
+  for (const id of ids) deleteFrom(next, id, clearReferences);
+  return validateAdventure(next);
+}
 export function removeObject(
   doc: AdventureDocument,
   id: string,
   clearReferences = false,
 ): AdventureDocument {
-  const next = structuredClone(doc);
-  deleteFrom(next, id, clearReferences);
-  return validateAdventure(next);
+  return removeObjects(doc, [id], clearReferences);
 }
+
 function defaultObject(
   doc: AdventureDocument,
   room: Room,

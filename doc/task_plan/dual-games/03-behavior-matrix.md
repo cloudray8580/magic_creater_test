@@ -25,3 +25,11 @@
 |B31b|分层事务、移动复制/引用保护、撤销|C32|adventure-editor/editor-component UT|
 |B31c|桌面画布、属性与连线、原位试玩返回|C33|editor-component/document-play/app-draft UT + editor E2E|
 |B31d|草稿损坏恢复、离线/冲突/导出导入、横版分享|C34|app-draft UT + editor/workflow E2E|
+
+## M4（C41–C44，frozen，证据13-m4-verification.md）
+|ID|目标|契约|验证|
+|---|---|---|---|
+|B41a|房间、门户、删除引用清理/撤销|C41|story-editor UT、story-editor-component UT、story-editor E2E|
+|B41b|对话卡、顺序、选择动作、默认页|C42|story-editor UT、story-editor-component UT、story-editor E2E|
+|B41c|any/all、跨房间来源、标记原子改名删除|C43|story-editor UT、story-editor-component UT|
+|B41d|三模板创作与同伴完整分享|C44|story-editor E2E、旧workflow/editor回归|
