@@ -139,3 +139,16 @@ export function frameStory(s: StorySession): GameFrame {
     prompt: nearbyInteractions(s).length ? 'E · ' + (nearbyInteractions(s)[0].name || '互动') : '',
   };
 }
+
+/** Shared art choice: the editor must show the surface the player will see. */
+export function tileTexture(
+  mode: 'platformer' | 'story',
+  room: Room,
+  tile: Room['tiles'][number],
+): string {
+  if (tile.kind !== 'solid') return tile.kind;
+  if (mode !== 'platformer' || room.ground !== 'grass') return 'stone';
+  return room.tiles.some((t) => t.x === tile.x && t.y === tile.y - 1 && t.kind === 'solid')
+    ? 'earth'
+    : 'grass-edge';
+}

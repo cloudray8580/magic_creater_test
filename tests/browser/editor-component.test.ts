@@ -421,3 +421,72 @@ it('rejects a seventeenth image for the hero without changing the valid draft', 
   expect(latest).toEqual(before);
   expect(host.querySelector('.personal-assets [role=status]')?.textContent).toMatch(/16|素材/);
 });
+
+it('selects a group, moves and copies it with one undo, rejects occupied destinations and clears selection on layer change', async () => {
+  const canvas = await start();
+  await click('框选');
+  await pointer(canvas, 'pointerdown', 24, 12);
+  await pointer(canvas, 'pointermove', 30, 13);
+  await pointer(canvas, 'pointerup', 30, 13);
+  expect(host.querySelector('[data-testid="group-selection"]')).toBeTruthy();
+  await pointer(canvas, 'pointerdown', 24, 13);
+  await pointer(canvas, 'pointerup', 24, 9);
+  expect(latest.rooms[0].objects.find((o) => o.id === 'gate')?.y).toBe(8);
+  expect(latest.rooms[0].objects.find((o) => o.id === 'lantern-switch')?.y).toBe(9);
+  await click('复制选区');
+  await pointer(canvas, 'pointerdown', 24, 8);
+  await pointer(canvas, 'pointerup', 24, 8);
+  expect(host.textContent).toContain('已有同层内容');
+  await pointer(canvas, 'pointerdown', 24, 3);
+  await pointer(canvas, 'pointerup', 24, 3);
+  const copied = latest.rooms[0].objects.find((o) => o.kind === 'door' && o.id !== 'gate')!;
+  expect(copied.y).toBe(3);
+  expect(copied.condition?.sources[0]).not.toBe('lantern-switch');
+  await click('撤销');
+  expect(latest.rooms[0].objects.filter((o) => o.kind === 'door')).toHaveLength(1);
+  await click('撤销');
+  expect(latest.rooms[0].objects.find((o) => o.id === 'gate')?.y).toBe(12);
+  await click('重做');
+  expect(latest.rooms[0].objects.find((o) => o.id === 'gate')?.y).toBe(8);
+  await pointer(canvas, 'pointerdown', 24, 8);
+  await pointer(canvas, 'pointerup', 30, 9);
+  await click('删除选区');
+  expect(latest.rooms[0].objects.some((o) => o.id === 'gate')).toBe(false);
+  await click('撤销');
+  await pointer(canvas, 'pointerdown', 24, 8);
+  await pointer(canvas, 'pointercancel', 30, 9);
+  expect(host.querySelector('[data-testid="group-selection"]')).toBeNull();
+  await pointer(canvas, 'pointerdown', 24, 8);
+  await pointer(canvas, 'pointerup', 30, 9);
+  const select = host.querySelector('[aria-label="编辑图层"]')! as HTMLSelectElement;
+  await act(async () => {
+    select.value = 'terrain';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(host.querySelector('[data-testid="group-selection"]')).toBeNull();
+});
+
+it('keeps a focused dimension edit as its own undo step when placing a group copy', async () => {
+  const canvas = await start();
+  await click('框选');
+  await pointer(canvas, 'pointerdown', 24, 12);
+  await pointer(canvas, 'pointerup', 30, 13);
+  await click('复制选区');
+  const input = Array.from(host.querySelectorAll('label'))
+    .find((l) => l.firstChild?.textContent === '地图宽度')!
+    .querySelector('input')!;
+  await act(async () => input.focus());
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '50');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await pointer(canvas, 'pointerdown', 24, 3);
+  await pointer(canvas, 'pointerup', 24, 3);
+  expect(latest.rooms[0].width).toBe(50);
+  expect(latest.rooms[0].objects.filter((o) => o.kind === 'door')).toHaveLength(2);
+  await click('撤销');
+  expect(latest.rooms[0].width).toBe(50);
+  expect(latest.rooms[0].objects.filter((o) => o.kind === 'door')).toHaveLength(1);
+  await click('撤销');
+  expect(latest.rooms[0].width).toBe(42);
+});

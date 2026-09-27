@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
+import Database from 'better-sqlite3';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, readdirSync, copyFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, readdirSync, copyFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -40,6 +42,43 @@ const release = execFileSync(
   ['--user', 'show', 'magic-creater.service', '--property=WorkingDirectory', '--value'],
   { encoding: 'utf8' },
 ).trim();
+const commit = readFileSync(join(release, 'COMMIT'), 'utf8').trim();
+assert.match(commit, /^[a-f0-9]{40}$/);
+// The final acceptance record can be committed after deployment without changing the release.
+execFileSync(
+  'git',
+  [
+    'diff',
+    '--exit-code',
+    commit,
+    'HEAD',
+    '--',
+    'src',
+    'public',
+    'scripts',
+    'package.json',
+    'package-lock.json',
+    'vite.config.ts',
+    'tsconfig.json',
+    'tsconfig.server.json',
+    'index.html',
+  ],
+  { stdio: 'pipe' },
+);
+const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const html = await (await fetch(origin)).text();
+assert.equal(html, readFileSync(join(release, 'dist/web/index.html'), 'utf8'));
+const resources = [...html.matchAll(/(?:src|href)="(\/assets\/[^" ]+)"/g)].map((m) => m[1]);
+resources.push('/art/storybook-v1/cottage-background.svg');
+assert(resources.length >= 3);
+for (const resource of resources) {
+  const response = await fetch(origin + resource);
+  assert.equal(response.status, 200);
+  assert.equal(
+    digest(Buffer.from(await response.arrayBuffer())),
+    digest(readFileSync(join(release, 'dist/web', resource))),
+  );
+}
 const base = join(process.env.HOME, '.local/share/magic-creater');
 const backup = readdirSync(join(base, 'backups'))
   .filter((f) => /^magic-.*\.sqlite$/.test(f))
@@ -73,8 +112,27 @@ try {
   });
   assert.equal(result.statusCode, 200);
   assert.equal((await context.app.inject('/')).statusCode, 200);
+  assert.equal(context.db.pragma('user_version', { simple: true }), 3);
+  assert(process.argv[2], 'Pass the pre-upgrade SQLite snapshot to verify existing content');
+  const original = new Database(process.argv[2], { readonly: true, fileMustExist: true });
+  try {
+    for (const table of ['users', 'classrooms', 'projects', 'versions', 'feedback']) {
+      const cols = original
+        .pragma('table_info(' + table + ')')
+        .map((c) => c.name)
+        .join(',');
+      const query = 'SELECT ' + cols + ' FROM ' + table + ' ORDER BY rowid';
+      assert.equal(
+        digest(JSON.stringify(context.db.prepare(query).all())),
+        digest(JSON.stringify(original.prepare(query).all())),
+        table + ' preserved',
+      );
+    }
+  } finally {
+    original.close();
+  }
   const counts = Object.fromEntries(
-    ['users', 'classrooms', 'projects', 'versions', 'feedback'].map((t) => [
+    ['users', 'classrooms', 'projects', 'versions', 'feedback', 'assets'].map((t) => [
       t,
       context.db.prepare('SELECT COUNT(*) AS n FROM ' + t).get().n,
     ]),
@@ -83,6 +141,10 @@ try {
     JSON.stringify({
       service: 'active',
       release,
+      commit,
+      schema: 3,
+      frontendResources: resources.length,
+      existingContent: 'unchanged',
       restartSession: 'passed',
       restore: 'passed',
       integrity: 'ok',

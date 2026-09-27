@@ -33,6 +33,26 @@ export function countCoveredLines(report, additions) {
       .sort((a, b) => a - b),
   };
 }
+// Statements use newly added executable starts. Functions and branches count all
+// paths in constructs whose source span intersects additions, including changed bodies.
+export function countAffectedMetrics(report, additions) {
+  const intersects = (loc) =>
+    [...additions].some((line) => line >= loc.start.line && line <= loc.end.line);
+  const result = Object.fromEntries(
+    ['statements', 'functions', 'branches'].map((k) => [k, { total: 0, covered: 0 }]),
+  );
+  const add = (key, hits) => {
+    result[key].total++;
+    if (hits > 0) result[key].covered++;
+  };
+  for (const [id, loc] of Object.entries(report.statementMap))
+    if (additions.has(loc.start.line)) add('statements', report.s[id]);
+  for (const [id, fn] of Object.entries(report.fnMap))
+    if (intersects(fn.loc)) add('functions', report.f[id]);
+  for (const [id, branch] of Object.entries(report.branchMap))
+    if (intersects(branch.loc)) for (const hits of report.b[id]) add('branches', hits);
+  return result;
+}
 function main() {
   const base = process.argv[2] || process.env.COVERAGE_BASE || 'origin/main';
   const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
@@ -60,6 +80,9 @@ function main() {
     );
   }
   const report = JSON.parse(readFileSync('coverage/coverage-final.json', 'utf8'));
+  const backend = Object.fromEntries(
+    ['lines', 'statements', 'functions', 'branches'].map((k) => [k, { total: 0, covered: 0 }]),
+  );
   let total = 0,
     covered = 0;
   for (const [file, lines] of files) {
@@ -67,10 +90,28 @@ function main() {
     const data = report[resolve(root, file)];
     if (!data) throw new Error('Missing unit coverage for changed business file: ' + file);
     const count = countCoveredLines(data, lines);
+    if (file.startsWith('src/server/')) {
+      const metrics = { lines: count, ...countAffectedMetrics(data, lines) };
+      for (const key of Object.keys(backend)) {
+        backend[key].total += metrics[key].total;
+        backend[key].covered += metrics[key].covered;
+      }
+    }
     total += count.total;
     covered += count.covered;
     console.log(`${file}: ${count.covered}/${count.total} added executable lines`);
     if (count.uncovered.length) console.log(`  Uncovered: ${count.uncovered.join(', ')}`);
+  }
+  for (const [key, value] of Object.entries(backend)) {
+    if (!value.total) {
+      console.log(`Backend incremental ${key}: no affected constructs`);
+      continue;
+    }
+    const percent = (100 * value.covered) / value.total;
+    console.log(
+      `Backend incremental ${key}: ${value.covered}/${value.total} = ${percent.toFixed(2)}%`,
+    );
+    if (percent < 70) process.exitCode = 1;
   }
   if (!total) {
     console.log('No added executable business lines relative to ' + base);

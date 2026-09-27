@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900">
+<defs><linearGradient id="wall" x2="0" y2="1"><stop stop-color="#f5dfbd"/><stop offset="1" stop-color="#dcb98e"/></linearGradient><linearGradient id="sky" x2="0" y2="1"><stop stop-color="#98b6b1"/><stop offset="1" stop-color="#e7dbc1"/></linearGradient><radialGradient id="lamp"><stop stop-color="#fff2b8" stop-opacity=".8"/><stop offset="1" stop-color="#ffe6a0" stop-opacity="0"/></radialGradient></defs>
+<rect width="1440" height="900" fill="url(#wall)"/>
+<g stroke="#d1ac88" stroke-width="2" opacity=".35"><path d="M0 120H1440M0 240H1440M0 360H1440M0 480H1440M0 600H1440"/><path d="M80 0V670M340 0V670M610 0V670M870 0V670M1130 0V670M1390 0V670"/></g>
+<path d="M0 0H1440V72H0Z" fill="#946e57"/><path d="M0 55H1440" stroke="#b58965" stroke-width="13"/>
+<rect x="790" y="150" width="410" height="394" rx="30" fill="#b58a67"/>
+<rect x="810" y="171" width="370" height="350" rx="21" fill="url(#sky)"/>
+<circle cx="1100" cy="255" r="42" fill="#fff1ca"/>
+<path d="M810 417Q865 300 980 426Q1090 320 1180 414V521H810Z" fill="#87a795"/><path d="M810 486Q920 406 1020 479Q1110 436 1180 481V521H810Z" fill="#628e79"/>
+<path d="M993 172V522M811 338H1178" stroke="#ad805c" stroke-width="16"/>
+<path d="M765 143Q805 225 751 376L817 363Q853 248 828 143ZM1170 143Q1165 255 1218 365L1280 378Q1228 253 1240 143Z" fill="#ba8170"/><path d="M750 540H1240" stroke="#94705a" stroke-width="20" stroke-linecap="round"/>
+<ellipse cx="269" cy="305" rx="185" ry="225" fill="url(#lamp)"/><path d="M269 62V198" stroke="#866955" stroke-width="6"/><path d="M210 259L239 196H299L330 259Z" fill="#b68a5f"/><ellipse cx="270" cy="260" rx="57" ry="9" fill="#fff0bc"/>
+<path d="M76 482H503" stroke="#9b765e" stroke-width="19" stroke-linecap="round"/>
+<g stroke="#8d735c" stroke-width="3"><rect x="130" y="385" width="38" height="85" rx="5" fill="#789c91"/><rect x="176" y="396" width="28" height="74" rx="4" fill="#cda775"/><path d="M219 399L250 389L274 467L243 476Z" fill="#b68072"/></g>
+<path d="M380 471L367 432H427L414 471Z" fill="#bd8764"/><g fill="#789875"><ellipse cx="388" cy="412" rx="13" ry="28" transform="rotate(-30 388 412)"/><ellipse cx="414" cy="405" rx="12" ry="31" transform="rotate(26 414 405)"/></g>
+<rect y="666" width="1440" height="234" fill="#b08867"/><path d="M0 679H1440M0 755H1440M0 832H1440" stroke="#946f56" stroke-width="6"/><path d="M0 666H1440" stroke="#8e6b54" stroke-width="22"/>
+<!-- Narrow side alcoves remain visible beside the story floor; central scenery serves platform worlds. -->
+<rect x="17" y="184" width="116" height="308" rx="29" fill="#98735b"/>
+<rect x="28" y="197" width="94" height="280" rx="22" fill="#99bdb5"/>
+<circle cx="62" cy="248" r="22" fill="#fff0be"/>
+<path d="M28 413Q65 330 122 400V459Q122 477 105 477H44Q28 477 28 459Z" fill="#719784"/>
+<path d="M75 200V477M29 330H121" stroke="#b28a65" stroke-width="9"/>
+<path d="M14 494H137" stroke="#8a6954" stroke-width="13" stroke-linecap="round"/>
+<g transform="translate(1308 190)"><rect width="112" height="315" rx="12" fill="#a88162"/><rect x="9" y="10" width="94" height="291" rx="7" fill="#d2b58d"/><path d="M0 104H112M0 203H112M0 309H112" stroke="#8e6d56" stroke-width="12"/>
+<g stroke="#8b7059" stroke-width="2"><rect x="18" y="38" width="22" height="59" rx="3" fill="#789c91"/><rect x="45" y="27" width="18" height="70" rx="3" fill="#bd8674"/><path d="M69 45L86 39L103 94L87 100Z" fill="#e8c187"/><rect x="17" y="140" width="22" height="56" rx="3" fill="#b68173"/><rect x="44" y="131" width="26" height="65" rx="3" fill="#789b88"/></g>
+<path d="M36 300L30 274H79L73 300Z" fill="#b98466"/><g fill="#719578"><ellipse cx="42" cy="262" rx="8" ry="20" transform="rotate(-27 42 262)"/><ellipse cx="65" cy="257" rx="9" ry="22" transform="rotate(24 65 257)"/></g></g>
+</svg>

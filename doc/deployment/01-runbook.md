@@ -14,7 +14,7 @@ npm run test:e2e
 npm run build
 ```
 
-E2E 在11700启动真实Chromium和独立临时数据库，退出时清理；运行端口4273。覆盖统计包括所有src/server和src/shared文件（包括未导入模块），另独立计算后端指标。初始main只有文档，新增后端全量即本次增量。
+E2E 在11700启动真实Chromium和独立临时数据库，退出时清理；运行端口4273。覆盖统计包含所有src TS/TSX业务文件（包括未导入模块），E2E不计入UT。门禁分别检查后端四项、server/shared四项及新增可执行行；新增后端语句按新增起始行、函数/分支按源码区间与新增行交集统计，涉及分支计全部臂。整轮双玩法基线为82c1c2d48ddc79b33f0a6e6fef7e6a29e47d1510，使用COVERAGE_BASE指定。
 
 开发时分别运行 `npm run dev:server`（配置环境变量）和 `npm run dev`。Vite仅用于开发，部署运行dist中的产物。
 
@@ -78,3 +78,27 @@ node dist/server/backup.js "$HOME/.local/share/magic-creater/backups/backup-$(da
 - 包内包含一致性数据库快照、应用配置、首次老师凭据与文件哈希清单；恢复时需调整配置中的目标路径和来源地址。
 - 已验证解密后的tar字节一致、各文件哈希、SQLite完整性及外键检查。
 - **尚未迁出原主机**，按用户随后明确的第一版范围保持现状。现有加密包仅作为可用恢复材料，不计作异机备份，也不再等待目的地选择。以后实施异机备份时，再安排密文和恢复口令的独立受限保存及恢复校验。
+
+## 双玩法升级：schema 2 → 3
+
+当前增量加入个人图片、改编来源/授权和反馈位置。原有用户、作品、固定版本、反馈数据逐列保留；新字段取默认值。每个release的COMMIT记录来源提交；这个标记本身不证明构建新鲜，发布必须严格按“最终代码验证 → commit → 重新build → deploy”执行并记录构建顺序。测试构建不会改已运行release。
+
+```bash
+# 先在临时副本演练；此命令只读源DB，不更改现有服务。
+node scripts/verify-upgrade.mjs OLD_RELEASE /home/cloudray/.local/share/magic-creater/data/app.sqlite
+# 确认全部UT/E2E/review通过，提交所有发布文件后：
+npm run build
+bash scripts/deploy-user.sh
+# 传入deploy打印的Rollback state中的app.sqlite：
+node --env-file="$HOME/.config/magic-creater/bootstrap.env" scripts/verify-deployment.mjs PRE_UPGRADE_SNAPSHOT
+```
+
+升级脚本停止应用和本机备份写入，生成 `~/.local/share/magic-creater/upgrades/<时间>/`：原DB一致性快照、旧配置、旧systemd units和release路径。失败时自动恢复；快照尚未完成时仅恢复旧服务，完成后成对恢复旧DB与程序。可手动执行：
+
+```bash
+bash scripts/rollback-user.sh "$HOME/.local/share/magic-creater/upgrades/对应时间"
+```
+
+回滚会停服务，先保留当前数据为同目录的 `displaced-*.sqlite` 再恢复原快照。上线后新增的作品不会自动合并进旧schema，需要人工恢复现场副本。升级状态快照不受每日14天清理规则删除，确认无需回滚后由维护者安排清理。不要只切旧release却继续使用schema3的DB。
+
+`verify-upgrade` 验证临时DB迁移、旧列摘要、图片字节/来源/位置恢复及旧程序配对恢复；它不操作systemd。`verify-deployment` 在真实服务验证登录会话经重启仍有效、前端入口/资源与release一致，再对实际每日备份的临时恢复副本验证登录、完整性、schema和迁移前数据摘要。测试图片/作品仅写临时副本，不写真实服务。

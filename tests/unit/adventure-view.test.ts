@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { framePlatform, frameStory, keyboardDirection } from '../../src/client/adventure/view.js';
+import {
+  framePlatform,
+  frameStory,
+  keyboardDirection,
+  tileTexture,
+} from '../../src/client/adventure/view.js';
 import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 import { startPlatform } from '../../src/shared/adventure/platform.js';
 import { startStory, storyAction } from '../../src/shared/adventure/story.js';
@@ -55,4 +60,16 @@ it('uses an available default picture for a decoration without a chosen skin', (
       doc.gameType === 'story' ? frameStory(startStory(doc)) : framePlatform(startPlatform(doc));
     expect(frame.objects.find((o) => o.id === decoration.id)!.texture).toBe('tree');
   }
+});
+
+it('chooses the same exposed grass, earth and stone tiles for editor and runtime', () => {
+  const d = adventureTemplate();
+  const r = d.rooms[0];
+  expect(tileTexture('platformer', r, { x: 0, y: 14, kind: 'solid' })).toBe('grass-edge');
+  expect(tileTexture('platformer', r, { x: 0, y: 15, kind: 'solid' })).toBe('earth');
+  expect(tileTexture('story', r, { x: 0, y: 14, kind: 'solid' })).toBe('stone');
+  expect(tileTexture('platformer', { ...r, ground: 'wood' }, { x: 0, y: 14, kind: 'solid' })).toBe(
+    'stone',
+  );
+  expect(tileTexture('story', r, { x: 0, y: 3, kind: 'water' })).toBe('water');
 });

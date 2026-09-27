@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 // Tooling is plain Node ESM so the coverage gate also runs after build.
 // @ts-expect-error JavaScript CLI helper has no separate declaration file.
-import { addedLines, countCoveredLines } from '../../scripts/check-incremental-coverage.mjs';
+import * as coverageGate from '../../scripts/check-incremental-coverage.mjs';
+const { addedLines, countCoveredLines, countAffectedMetrics } = coverageGate;
 describe('incremental coverage denominator', () => {
   it('counts added executable lines including new files and ignores deletion-only hunks', () => {
     const diff =
@@ -37,5 +38,25 @@ describe('incremental coverage denominator', () => {
       covered: 1,
       uncovered: [],
     });
+  });
+});
+
+it('counts affected backend statements, functions and every arm of changed branches', () => {
+  const span = (a: number, b = a) => ({ start: { line: a }, end: { line: b } });
+  const report = {
+    statementMap: { 0: span(2), 1: span(2), 2: span(9) },
+    s: { 0: 1, 1: 0, 2: 0 },
+    fnMap: { 0: { loc: span(1, 4) }, 1: { loc: span(8, 9) } },
+    f: { 0: 1, 1: 0 },
+    branchMap: {
+      0: { loc: span(2, 3), locations: [span(2), span(3)] },
+      1: { loc: span(9), locations: [span(9)] },
+    },
+    b: { 0: [1, 0], 1: [0] },
+  };
+  expect(countAffectedMetrics(report, new Set([2]))).toEqual({
+    statements: { total: 2, covered: 1 },
+    functions: { total: 1, covered: 1 },
+    branches: { total: 2, covered: 1 },
   });
 });

@@ -78,3 +78,68 @@ test('story sample: push box, inventory, room portal, dialogue choice, ending an
   await expect(page.getByText('你让这个世界发生了变化')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('remaining story templates: lighthouse delivery and both cottage choices with real keyboard input', async ({
+  page,
+}) => {
+  await samples(page);
+  const garden = async () => {
+    for (const [key, pos] of [
+      ['ArrowDown', '2,8'],
+      ['ArrowRight', '4,8'],
+      ['ArrowUp', '4,7'],
+      ['ArrowRight', '5,7'],
+      ['ArrowUp', '5,6'],
+      ['ArrowRight', '8,6'],
+      ['ArrowDown', '8,7'],
+    ])
+      await step(page, key, pos);
+  };
+  await page
+    .getByRole('button', { name: '找回灯塔的光 找到电池，帮助守灯人照亮回家的路。' })
+    .click();
+  await page.getByRole('button', { name: '点击进入小世界' }).click();
+  await garden();
+  await expect(page.locator('.inventory')).toContainText('电池');
+  await step(page, 'ArrowRight', '2,7');
+  await step(page, 'ArrowRight', '7,7');
+  await step(page, 'ArrowUp', '7,5');
+  await page.keyboard.press('e');
+  await page.getByRole('button', { name: '交出电池', exact: true }).click();
+  await page.getByRole('button', { name: '继续旅程' }).click();
+  await step(page, 'ArrowDown', '7,7');
+  await step(page, 'ArrowRight', '12,7');
+  await expect(
+    page.getByText('灯塔亮起来了。每一艘小船，都能找到回家的方向。', { exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: 'artifacts/m6-lighthouse-finished.png', fullPage: true });
+  for (const choice of ['一起看星星', '把信放在桌上']) {
+    if (choice === '一起看星星') {
+      await page
+        .getByRole('button', { name: '我的秘密小屋 来做客吧！一间可以藏故事、礼物与秘密的小屋。' })
+        .click();
+      await page.getByRole('button', { name: '点击进入小世界' }).click();
+      await page.screenshot({ path: 'artifacts/m6-cottage-start.png', fullPage: true });
+    } else await page.getByRole('button', { name: '再走一遍，看看不同的风景' }).click();
+    await garden();
+    await step(page, 'ArrowRight', '11,7');
+    await step(page, 'ArrowUp', '11,6');
+    await page.keyboard.press('e');
+    await page.getByRole('button', { name: choice, exact: true }).click();
+    await expect(
+      page.getByText(
+        choice === '一起看星星'
+          ? '我们把灯关小，一起听见了星星的声音。'
+          : '信静静躺在桌上。明天，会有人带着新的故事来。',
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await page.screenshot({
+      path:
+        choice === '一起看星星'
+          ? 'artifacts/m6-cottage-stars.png'
+          : 'artifacts/m6-cottage-letter.png',
+      fullPage: true,
+    });
+  }
+});

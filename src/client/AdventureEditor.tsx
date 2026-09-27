@@ -1,3 +1,11 @@
+import { tileTexture } from './adventure/view.js';
+import {
+  selectArea,
+  selectionBounds,
+  transformSelection,
+  deleteSelection,
+  type WorldSelection,
+} from '../shared/adventure/selection.js';
 import { validateCreative } from '../shared/creative.js';
 import { AssetPanel } from './AssetPanel.js';
 import { HeroPreview } from './HeroPreview.js';
@@ -30,6 +38,7 @@ import {
 const CELL = 40;
 const NAMES: Record<string, string> = {
   select: '选择 / 移动',
+  marquee: '框选',
   spawn: '起点',
   solid: '地面',
   oneway: '单向平台',
@@ -125,7 +134,7 @@ export function AdventureEditor({
 }: Props) {
   const assets = useAssetUrls(doc, userId);
   const [roomId, setRoomId] = useState(doc.rooms[0].id),
-    [tool, setTool] = useState<PaintTool | 'select'>('select'),
+    [tool, setTool] = useState<PaintTool | 'select' | 'marquee'>('select'),
     [layer, setLayer] = useState<EditLayer>('objects');
   const [selected, setSelected] = useState(''),
     [zoom, setZoom] = useState(0.9),
@@ -142,6 +151,28 @@ export function AdventureEditor({
   const [portalPick, setPortalPick] = useState<{ objectId: string; returnRoom: string } | null>(
     null,
   );
+  const [group, setGroup] = useState<WorldSelection | null>(null),
+    [copyGroup, setCopyGroup] = useState(false),
+    [marquee, setMarquee] = useState<{ start: Cell; end: Cell } | null>(null);
+  const groupDrag = useRef<{ selection: WorldSelection; start: Cell } | null>(null);
+  function clearGroup() {
+    setGroup(null);
+    setCopyGroup(false);
+    setMarquee(null);
+    groupDrag.current = null;
+  }
+  function historyAction(redo = false) {
+    clearGroup();
+    redo ? onRedo() : onUndo();
+  }
+  let groupBounds: ReturnType<typeof selectionBounds> = null;
+  if (group) {
+    try {
+      groupBounds = selectionBounds(doc, group);
+    } catch {
+      /* A changed draft requires a new selection. */
+    }
+  }
   const gridId = useId();
   const current = draft ?? doc,
     room = current.rooms.find((r) => r.id === roomId) ?? current.rooms[0];
@@ -176,6 +207,7 @@ export function AdventureEditor({
     safely(() => onChange(work()));
   }
   function selectRoom(id: string) {
+    clearGroup();
     setRoomId(id);
     setSelected('');
     setPortalPick(null);
@@ -183,16 +215,20 @@ export function AdventureEditor({
     setCursor({ x: 2, y: 2 });
     setPreviewCell({ x: 2, y: 2 });
   }
-  function choose(next: PaintTool | 'select') {
+  function choose(next: PaintTool | 'select' | 'marquee') {
+    clearGroup();
+    if (next === 'marquee') setSelected('');
     setTool(next);
     setPick(null);
     if (['solid', 'oneway', 'water'].includes(next)) setLayer('terrain');
     else if (DECOR.includes(next as PaintTool)) setLayer('decoration');
-    else if (next !== 'erase' && next !== 'select') setLayer('objects');
+    else if (next !== 'erase' && next !== 'select' && next !== 'marquee') setLayer('objects');
     setNotice(
-      next === 'select'
-        ? '点选物体查看属性，拖动可以移动。'
-        : `已选择${NAMES[next]}，点击或拖动画布放置。`,
+      next === 'marquee'
+        ? '拖出矩形选择当前图层，拖动选区整体移动。'
+        : next === 'select'
+          ? '点选物体查看属性，拖动可以移动。'
+          : `已选择${NAMES[next]}，点击或拖动画布放置。`,
     );
   }
   function point(e: ReactPointerEvent<SVGSVGElement>): Cell {
@@ -217,7 +253,7 @@ export function AdventureEditor({
       );
   }
   function draw(p: Cell) {
-    if (!stroke.current || tool === 'select') return;
+    if (!stroke.current || tool === 'select' || tool === 'marquee') return;
     try {
       const next = paintWorld(
         stroke.current.next,
@@ -301,6 +337,39 @@ export function AdventureEditor({
       setPick(null);
       return;
     }
+    if (tool === 'marquee') {
+      setSelected('');
+      if (copyGroup && group) {
+        safely(() => {
+          const bounds = selectionBounds(currentDoc, { ...group, includesStart: false });
+          if (!bounds) throw new Error('起点只有一个，不能复制；请框选其他内容');
+          const result = transformSelection(
+            currentDoc,
+            group,
+            p.x - bounds.x,
+            p.y - bounds.y,
+            true,
+          );
+          latest.current.onChange(result.document);
+          setGroup(result.selection);
+          setCopyGroup(false);
+          setNotice('已复制选区，组内连接也已复制。');
+        });
+      } else if (
+        group &&
+        groupBounds &&
+        p.x >= groupBounds.x &&
+        p.y >= groupBounds.y &&
+        p.x < groupBounds.x + groupBounds.width &&
+        p.y < groupBounds.y + groupBounds.height
+      ) {
+        groupDrag.current = { selection: group, start: p };
+      } else {
+        setGroup(null);
+        setMarquee({ start: p, end: p });
+      }
+      return;
+    }
     if (tool === 'select') {
       const o = hit(p);
       const start =
@@ -321,6 +390,42 @@ export function AdventureEditor({
     }
   }
   function finish(e: ReactPointerEvent<SVGSVGElement>, cancel = false) {
+    if (!cancel && marquee) {
+      safely(() => {
+        const selection = selectArea(
+          latest.current.doc,
+          latest.current.room.id,
+          layer,
+          marquee.start,
+          point(e),
+        );
+        setGroup(selection);
+        setNotice(
+          selectionBounds(latest.current.doc, selection)
+            ? '选区已建立，可以移动、复制或删除。'
+            : '选区为空，请重新框选。',
+        );
+      });
+    }
+    if (!cancel && groupDrag.current) {
+      const d = groupDrag.current,
+        p = point(e);
+      if (p.x !== d.start.x || p.y !== d.start.y)
+        safely(() => {
+          const result = transformSelection(
+            latest.current.doc,
+            d.selection,
+            p.x - d.start.x,
+            p.y - d.start.y,
+            false,
+          );
+          latest.current.onChange(result.document);
+          setGroup(result.selection);
+          setNotice('已移动选区，可一次撤销。');
+        });
+    }
+    groupDrag.current = null;
+    setMarquee(null);
     if (!cancel && stroke.current) onChange(stroke.current.next);
     if (!cancel && drag.current) {
       const p = point(e),
@@ -343,6 +448,22 @@ export function AdventureEditor({
     if (object) change(() => updateObject(doc, object.id, patch));
   }
   function remove() {
+    if (group) {
+      const external = group.objectIds
+        .flatMap((id) => referencesTo(doc, id))
+        .filter((id) => !group.objectIds.includes(id));
+      if (
+        external.length &&
+        !window.confirm('外部机关或对话引用了选区。删除会清理连接，空条件的门会打开。确认删除？')
+      )
+        return;
+      safely(() => {
+        onChange(deleteSelection(doc, group, true));
+        clearGroup();
+        setNotice('已删除选区，可一次撤销。');
+      });
+      return;
+    }
     if (!object) return;
     const refs = referencesTo(doc, object.id);
     if (
@@ -361,7 +482,7 @@ export function AdventureEditor({
       <aside className="editor-palette panel">
         <h3>放进世界</h3>
         <div className="palette-grid">
-          {(['select', ...tools, ...DECOR, 'erase'] as const).map((t) => (
+          {(['select', 'marquee', ...tools, ...DECOR, 'erase'] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -370,10 +491,10 @@ export function AdventureEditor({
               aria-label={NAMES[t]}
               onClick={() => choose(t)}
             >
-              {!['select', 'spawn', 'erase'].includes(t) ? (
+              {!['select', 'marquee', 'spawn', 'erase'].includes(t) ? (
                 <img src={`/art/storybook-v1/${texture(t)}.svg`} alt="" />
               ) : (
-                <b>{t === 'spawn' ? '起' : t === 'erase' ? '⌫' : '↖'}</b>
+                <b>{t === 'spawn' ? '起' : t === 'erase' ? '⌫' : t === 'marquee' ? '▧' : '↖'}</b>
               )}
               <span>{NAMES[t]}</span>
             </button>
@@ -388,6 +509,8 @@ export function AdventureEditor({
               aria-label="编辑图层"
               value={layer}
               onChange={(e) => {
+                clearGroup();
+                setSelected('');
                 setLayer(e.target.value as EditLayer);
                 setTool('select');
                 setPick(null);
@@ -398,10 +521,10 @@ export function AdventureEditor({
               <option value="decoration">装饰</option>
             </select>
           </label>
-          <button disabled={!canUndo} onClick={onUndo}>
+          <button disabled={!canUndo} onClick={() => historyAction()}>
             撤销
           </button>
-          <button disabled={!canRedo} onClick={onRedo}>
+          <button disabled={!canRedo} onClick={() => historyAction(true)}>
             重做
           </button>
           <button aria-label="缩小地图" onClick={() => setZoom(Math.max(0.35, zoom - 0.15))}>
@@ -472,6 +595,7 @@ export function AdventureEditor({
               }
               const p = point(e);
               setCursor(p);
+              if (marquee) setMarquee({ ...marquee, end: p });
               if (stroke.current) draw(p);
             }}
             onPointerUp={(e) => finish(e)}
@@ -480,7 +604,7 @@ export function AdventureEditor({
               if (e.target !== e.currentTarget) return;
               if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
                 e.preventDefault();
-                e.shiftKey ? onRedo() : onUndo();
+                historyAction(e.shiftKey);
               }
               if (e.key === 'Delete' || e.key === 'Backspace') {
                 e.preventDefault();
@@ -518,7 +642,7 @@ export function AdventureEditor({
                 y={t.y * CELL}
                 width={CELL}
                 height={CELL}
-                href={`/art/storybook-v1/${texture(t.kind)}.svg`}
+                href={`/art/storybook-v1/${tileTexture(doc.gameType, room, t)}.svg`}
               />
             ))}
             {room.objects.map((o) => (
@@ -546,7 +670,7 @@ export function AdventureEditor({
                     ★
                   </text>
                 )}
-                {selected === o.id && (
+                {(selected === o.id || group?.objectIds.includes(o.id)) && (
                   <rect
                     x={o.x * CELL + 1}
                     y={o.y * CELL + 1}
@@ -623,6 +747,32 @@ export function AdventureEditor({
               </g>
             )}
             <rect width="100%" height="100%" fill={`url(#${gridId})`} pointerEvents="none" />
+            {(marquee || groupBounds) &&
+              (() => {
+                const b = marquee
+                  ? {
+                      x: Math.min(marquee.start.x, marquee.end.x),
+                      y: Math.min(marquee.start.y, marquee.end.y),
+                      width: Math.abs(marquee.end.x - marquee.start.x) + 1,
+                      height: Math.abs(marquee.end.y - marquee.start.y) + 1,
+                    }
+                  : groupBounds!;
+                return (
+                  <rect
+                    data-testid="group-selection"
+                    x={b.x * CELL}
+                    y={b.y * CELL}
+                    width={b.width * CELL}
+                    height={b.height * CELL}
+                    fill="#edc875"
+                    fillOpacity=".16"
+                    stroke="#92591c"
+                    strokeWidth="3"
+                    strokeDasharray="8 4"
+                    pointerEvents="none"
+                  />
+                );
+              })()}
           </svg>
         </div>
         <div className="editor-status">
@@ -640,6 +790,30 @@ export function AdventureEditor({
         </button>
       </section>
       <aside className="editor-properties panel">
+        {group && (
+          <section aria-label="选区操作">
+            <h3>
+              选区：{group.objectIds.length + group.tiles.length + Number(group.includesStart)} 项
+            </h3>
+            <p>只操作当前图层。起点只有一个，不会被复制。</p>
+            <button
+              onClick={() =>
+                safely(() => {
+                  if (!selectionBounds(doc, { ...group, includesStart: false }))
+                    throw new Error('没有可复制的内容，起点不能复制');
+                  setCopyGroup(true);
+                  setNotice('点击空白位置作为副本左上角；组内连接跟随副本，传送落点保持原处。');
+                })
+              }
+            >
+              复制选区
+            </button>
+            <button onClick={remove}>删除选区</button>
+            <button onClick={clearGroup}>清除选区</button>
+            {copyGroup && <p role="status">点击副本的左上角位置</p>}
+          </section>
+        )}
+
         {object ? (
           <>
             <h3>{NAMES[object.kind] || '装饰'}的设置</h3>
@@ -806,6 +980,7 @@ export function AdventureEditor({
                 }}
                 pickPortal={(id) => {
                   setPortalPick({ objectId: object.id, returnRoom: room.id });
+                  clearGroup();
                   setRoomId(id);
                   setSelected('');
                   setPick(null);

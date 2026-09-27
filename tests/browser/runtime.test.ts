@@ -150,3 +150,110 @@ it('renders uploaded images and hero tint as actual Canvas pixels in both game m
     host.remove();
   }
 });
+
+it('renders cottage, forest and dusk as distinct actual background pixels', async () => {
+  const colors: number[][] = [];
+  for (const theme of ['forest', 'dusk', 'cottage'] as const) {
+    host = document.createElement('div');
+    Object.assign(host.style, { width: '960px', height: '576px' });
+    document.body.append(host);
+    const doc = adventureTemplate();
+    doc.theme = theme;
+    let ready = false;
+    controls = mountAdventure(host, doc, {
+      onFrame: () => {
+        ready = true;
+      },
+      onError: () => {},
+    });
+    await expect.poll(() => ready).toBe(true);
+    await delay(100);
+    const canvas = host.querySelector('canvas')!;
+    colors.push([...canvas.getContext('2d')!.getImageData(40, 40, 1, 1).data]);
+    controls.destroy();
+    controls = undefined;
+    await delay(50);
+    host.remove();
+  }
+  expect(colors[0]).not.toEqual(colors[1]);
+  expect(colors[0]).not.toEqual(colors[2]);
+  expect(colors[1]).not.toEqual(colors[2]);
+  expect(colors.every((c) => c[3] === 255)).toBe(true);
+});
+
+for (const kind of ['moving-bridge', 'rooftop-secret'] as const)
+  it(
+    'finishes the unmodified ' + kind + ' template via normal runtime keyboard controls',
+    async () => {
+      host = document.createElement('div');
+      Object.assign(host.style, { width: '960px', height: '576px' });
+      document.body.append(host);
+      let f: GameFrame | undefined;
+      const errors: string[] = [];
+      controls = mountAdventure(host, adventureTemplate(kind), {
+        onFrame: (frame) => {
+          f = frame;
+        },
+        onError: (e) => errors.push(e),
+      });
+      await expect.poll(() => f?.room.id).toBe('trail');
+      controls.pause(false);
+      await expect.poll(() => f?.hero.y).toBe(14);
+      const go = async (target: number, jump = false) => {
+        if (jump) controls!.key('Space', true);
+        controls!.key('ArrowRight', true);
+        await expect
+          .poll(() => f!.hero.x, { timeout: 5000, interval: 16 })
+          .toBeGreaterThanOrEqual(target - 0.6);
+        controls!.key('ArrowRight', false);
+        // Keep jump held through ascent; release only after the landing has completed.
+        await delay(1400);
+        controls!.key('Space', false);
+      };
+      await go(6.5);
+      await go(9.3, true);
+      expect(f!.collected).toBe(1);
+      expect(f!.hero.y).toBe(11);
+      await go(14.3, true);
+      expect(f!.collected).toBe(2);
+      expect(f!.hero.y).toBe(9);
+      if (kind === 'rooftop-secret') {
+        await go(17.8);
+        await expect
+          .poll(() => f!.objects.find((o) => o.id === 'patrol')!.x, { timeout: 9000, interval: 16 })
+          .toBeLessThan(20);
+      }
+      await go(24.3, true);
+      controls.key('KeyE', true);
+      controls.key('KeyE', false);
+      await expect.poll(() => f!.objects.find((o) => o.id === 'gate')?.texture).toBe('door-open');
+      await go(27.3, true);
+      expect(f!.collected).toBe(3);
+      controls.key('ArrowRight', true);
+      await expect.poll(() => f!.ending, { timeout: 5000 }).toBeTruthy();
+      controls.key('ArrowRight', false);
+      expect(f!.deaths).toBe(0);
+      expect(errors).toEqual([]);
+    },
+    40000,
+  );
+
+it('keeps the cottage window visible outside the opaque floor of the original story template', async () => {
+  host = document.createElement('div');
+  Object.assign(host.style, { width: '960px', height: '576px' });
+  document.body.append(host);
+  let ready = false;
+  controls = mountAdventure(host, adventureTemplate('secret-home'), {
+    onFrame: () => {
+      ready = true;
+    },
+    onError: () => {},
+  });
+  await expect.poll(() => ready).toBe(true);
+  await delay(100);
+  const data = host.querySelector('canvas')!.getContext('2d')!.getImageData(0, 0, 960, 576).data;
+  let windowPixels = 0;
+  for (let i = 0; i < data.length; i += 4)
+    if (data[i] === 153 && data[i + 1] === 189 && data[i + 2] === 181) windowPixels++;
+  expect(windowPixels).toBeGreaterThan(400);
+});

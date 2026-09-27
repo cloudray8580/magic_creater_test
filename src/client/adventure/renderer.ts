@@ -12,13 +12,20 @@ import {
   clearPlatformInput,
 } from '../../shared/adventure/platform.js';
 import { startStory, storyAction, type StoryAction } from '../../shared/adventure/story.js';
-import { framePlatform, frameStory, keyboardDirection, type GameFrame } from './view.js';
+import {
+  framePlatform,
+  frameStory,
+  keyboardDirection,
+  tileTexture,
+  type GameFrame,
+} from './view.js';
 import { composeCharacter } from '../character.js';
 import { GameAudio } from './audio.js';
 const TILE = 48;
 const TEXTURES = [
   ...BUILTIN_SKINS,
   'background',
+  'cottage-background',
   'grass',
   'earth',
   'grass-edge',
@@ -110,7 +117,7 @@ export function mountAdventure(
       );
       ready = true;
       this.add
-        .image(480, 288, 'background')
+        .image(480, 288, document.theme === 'cottage' ? 'cottage-background' : 'background')
         .setDisplaySize(960, 576)
         .setScrollFactor(0)
         .setDepth(-10);
@@ -152,17 +159,7 @@ export function mountAdventure(
         this.world.push(ground);
       }
       for (const tile of room.tiles) {
-        const exposed = !room.tiles.some(
-          (t) => t.x === tile.x && t.y === tile.y - 1 && t.kind === 'solid',
-        );
-        const texture =
-          tile.kind === 'solid'
-            ? frame.mode === 'platformer' && room.ground === 'grass'
-              ? exposed
-                ? 'grass-edge'
-                : 'earth'
-              : 'stone'
-            : tile.kind;
+        const texture = tileTexture(frame.mode, room, tile);
         const item = this.add
           .image((tile.x + 0.5) * TILE, (tile.y + 0.5) * TILE, texture)
           .setDisplaySize(TILE + 0.5, TILE + 0.5)
