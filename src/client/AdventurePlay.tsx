@@ -225,8 +225,15 @@ export function AdventurePlay({
       )}
       <div className="game-hud">
         <span>
-          收集 {frame?.collected ?? 0} / {frame?.total ?? 0}
+          必需 {frame?.requiredCollected ?? 0} / {frame?.requiredTotal ?? 0} · 发现{' '}
+          {(frame?.collected ?? 0) - (frame?.requiredCollected ?? 0)} /{' '}
+          {(frame?.total ?? 0) - (frame?.requiredTotal ?? 0)}
         </span>
+        {frame?.timer && (
+          <span className="game-timer" aria-label="计时开关剩余时间">
+            {frame.timer}
+          </span>
+        )}
         <span role="status">{frame?.notice || '沿着好奇心，向前走一点。'}</span>
         <span className="game-coordinate">
           {frame ? `${Math.floor(frame.hero.x)},${Math.ceil(frame.hero.y) - 1}` : ''}

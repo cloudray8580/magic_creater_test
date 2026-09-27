@@ -102,8 +102,8 @@ test('desktop platform creation, preview, review, peer completion and feedback',
   const saveGate = new Promise<void>((resolve) => {
     releaseSave = resolve;
   });
-  await a.route('**/api/projects/*', async (route) => {
-    if (route.request().method() === 'PUT') await saveGate;
+  await a.route('**/api/projects{,/*}', async (route) => {
+    if (['PUT', 'POST'].includes(route.request().method())) await saveGate;
     await route.continue();
   });
   const imagesBefore = await a.locator('.world-canvas > image').count();
@@ -117,7 +117,7 @@ test('desktop platform creation, preview, review, peer completion and feedback',
     releaseSave();
   }
   await expect(a.getByText('已保存到服务器', { exact: true })).toBeVisible();
-  await a.unroute('**/api/projects/*');
+  await a.unroute('**/api/projects{,/*}');
   expect(imagesDuring).toBe(imagesBefore);
   await a.getByRole('button', { name: '提交给老师' }).click();
   await expect(a.getByText('已提交给老师，等待确认展示')).toBeVisible();

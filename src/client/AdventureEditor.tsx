@@ -464,6 +464,11 @@ export function AdventureEditor({
       });
       return;
     }
+    if (selected === '@start') {
+      change(() => ({ ...doc, start: null }));
+      setSelected('');
+      return;
+    }
     if (!object) return;
     const refs = referencesTo(doc, object.id);
     if (
@@ -527,16 +532,25 @@ export function AdventureEditor({
           <button disabled={!canRedo} onClick={() => historyAction(true)}>
             重做
           </button>
-          <button aria-label="缩小地图" onClick={() => setZoom(Math.max(0.35, zoom - 0.15))}>
+          <button aria-label="缩小地图" onClick={() => setZoom(Math.max(0.005, zoom / 1.25))}>
             −
           </button>
           <span>{Math.round(zoom * 100)}%</span>
-          <button aria-label="放大地图" onClick={() => setZoom(Math.min(1.8, zoom + 0.15))}>
+          <button aria-label="放大地图" onClick={() => setZoom(Math.min(1.8, zoom * 1.25))}>
             ＋
           </button>
           <button
             onClick={() => {
-              setZoom(Math.min(1, (scroll.current?.clientWidth ?? 700) / (room.width * CELL)));
+              setZoom(
+                Math.max(
+                  0.005,
+                  Math.min(
+                    1,
+                    ((scroll.current?.clientWidth ?? 700) - 16) / (room.width * CELL),
+                    ((scroll.current?.clientHeight ?? 450) - 16) / (room.height * CELL),
+                  ),
+                ),
+              );
               scroll.current?.scrollTo(0, 0);
             }}
           >

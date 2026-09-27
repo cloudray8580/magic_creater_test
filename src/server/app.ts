@@ -34,6 +34,7 @@ interface UserRow {
   active: number;
 }
 interface ProjectRow {
+  creation_key?: string;
   id: string;
   owner_id: string;
   classroom_id: string;
@@ -52,23 +53,32 @@ function publicUser(u: UserRow) {
     active: Boolean(u.active),
   };
 }
-function projectView(p: ProjectRow) {
-  return {
-    id: p.id,
-    ownerId: p.owner_id,
-    revision: p.revision,
-    updatedAt: p.updated_at,
-    document: JSON.parse(p.document),
-    source: p.source ? JSON.parse(p.source) : null,
-    allowRemix: Boolean(p.allow_remix),
-  };
-}
 function param(req: FastifyRequest, key = 'id') {
   return (req.params as Record<string, string>)[key];
 }
 
 export async function createApp(options: AppOptions) {
   const db = openDatabase(options.databasePath);
+  function projectView(p: ProjectRow) {
+    const key =
+      p.creation_key ??
+      (
+        db
+          .prepare('SELECT creation_key FROM project_creations WHERE owner_id=? AND project_id=?')
+          .get(p.owner_id, p.id) as { creation_key: string } | undefined
+      )?.creation_key;
+    return {
+      id: p.id,
+      ...(key ? { creationKey: key } : {}),
+      ownerId: p.owner_id,
+      revision: p.revision,
+      updatedAt: p.updated_at,
+      document: JSON.parse(p.document),
+      source: p.source ? JSON.parse(p.source) : null,
+      allowRemix: Boolean(p.allow_remix),
+    };
+  }
+
   const app = Fastify({
     bodyLimit: DOCUMENT_BYTES + 1024,
     logger: options.logger
@@ -127,6 +137,16 @@ export async function createApp(options: AppOptions) {
     if (!user) throw new HttpError(401, '登录已过期，请重新登录');
     return user;
   }
+  app.addHook('preHandler', async (req) => {
+    const expected = req.headers['x-workshop-user'];
+    if (
+      req.url.startsWith('/api/') &&
+      req.url !== '/api/login' &&
+      expected !== undefined &&
+      expected !== currentUser(req).id
+    )
+      throw new HttpError(401, '账号已在其他标签切换，原账号草稿仍保留，请重新登录');
+  });
   function teacher(req: FastifyRequest) {
     const user = currentUser(req);
     if (user.role !== 'teacher') throw new HttpError(403, '此操作需要老师身份');
@@ -354,7 +374,7 @@ export async function createApp(options: AppOptions) {
       projects: (
         db
           .prepare(
-            'SELECT * FROM projects WHERE owner_id=? AND classroom_id=? ORDER BY updated_at DESC,id',
+            'SELECT p.*,c.creation_key FROM projects p LEFT JOIN project_creations c ON c.project_id=p.id AND c.owner_id=p.owner_id WHERE p.owner_id=? AND p.classroom_id=? ORDER BY p.updated_at DESC,p.id',
           )
           .all(u.id, u.classroom_id) as ProjectRow[]
       ).map(projectView),
@@ -362,16 +382,64 @@ export async function createApp(options: AppOptions) {
   });
   app.post('/api/projects', async (req, reply) => {
     const u = currentUser(req),
-      b = bodyObject(req.body, ['document']),
-      document = validateDocument(b.document),
-      id = randomUUID();
+      b = bodyObject(req.body, ['document', 'creationKey', 'allowRemix']);
+    if (
+      b.creationKey !== undefined &&
+      (typeof b.creationKey !== 'string' ||
+        !/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(b.creationKey))
+    )
+      throw new HttpError(400, '创作标识无效');
+    if (b.allowRemix !== undefined && typeof b.allowRemix !== 'boolean')
+      throw new HttpError(400, '改编设置无效');
+    const document = validateDocument(b.document);
     requireOwnedAssets(db, u.id, document);
-    db.prepare(
-      'INSERT INTO projects(id,owner_id,classroom_id,document,revision,updated_at) VALUES (?,?,?,?,1,?)',
-    ).run(id, u.id, u.classroom_id, JSON.stringify(document), Date.now());
-    reply.code(201);
-    return projectView(db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow);
+    return db.transaction(() => {
+      if (b.creationKey !== undefined) {
+        const previous = db
+          .prepare('SELECT project_id FROM project_creations WHERE owner_id=? AND creation_key=?')
+          .get(u.id, b.creationKey) as { project_id: string } | undefined;
+        if (previous) {
+          const p = db
+            .prepare('SELECT * FROM projects WHERE id=? AND owner_id=? AND classroom_id=?')
+            .get(previous.project_id, u.id, u.classroom_id) as ProjectRow | undefined;
+          if (!p) throw new HttpError(410, '这份作品已永久删除，请导出当前内容或明确另存为新作品');
+          return projectView(p);
+        }
+      }
+      const id = randomUUID();
+      db.prepare(
+        'INSERT INTO projects(id,owner_id,classroom_id,document,revision,updated_at,allow_remix) VALUES (?,?,?,?,1,?,?)',
+      ).run(
+        id,
+        u.id,
+        u.classroom_id,
+        JSON.stringify(document),
+        Date.now(),
+        Number(b.allowRemix ?? false),
+      );
+      if (b.creationKey !== undefined)
+        db.prepare(
+          'INSERT INTO project_creations(owner_id,creation_key,project_id) VALUES(?,?,?)',
+        ).run(u.id, b.creationKey, id);
+      reply.code(201);
+      return projectView(db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow);
+    })();
   });
+  app.delete('/api/projects/:id', async (req) =>
+    db.transaction(() => {
+      const p = ownedProject(req),
+        b = bodyObject(req.body, ['revision']),
+        expected = revision(b.revision);
+      if (p.revision !== expected)
+        throw new HttpError(409, '作品已在其他页面修改，请刷新列表后重新确认删除');
+      db.prepare(
+        'DELETE FROM feedback WHERE version_id IN (SELECT id FROM versions WHERE project_id=?)',
+      ).run(p.id);
+      db.prepare('DELETE FROM versions WHERE project_id=?').run(p.id);
+      db.prepare('DELETE FROM projects WHERE id=?').run(p.id);
+      return { ok: true, id: p.id };
+    })(),
+  );
   app.get('/api/projects/:id', async (req) => projectView(ownedProject(req)));
   app.put('/api/projects/:id', async (req) => {
     const p = ownedProject(req),

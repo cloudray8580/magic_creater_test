@@ -17,6 +17,7 @@ import {
   frameStory,
   keyboardDirection,
   tileTexture,
+  ReadableNotice,
   type GameFrame,
 } from './view.js';
 import { composeCharacter } from '../character.js';
@@ -83,8 +84,12 @@ export function mountAdventure(
     reportAt = 0,
     currentTime = 0;
   let previous = frame;
+  const readableNotice = new ReadableNotice();
+  let snapCamera = false;
   const publish = () => {
     frame = platform ? framePlatform(platform) : frameStory(story!);
+    if (frame.deaths !== previous.deaths || frame.room.id !== previous.room.id) snapCamera = true;
+    frame.notice = readableNotice.update(frame.notice, currentTime, frame.noticeKey);
     if (frame.ending && !previous.ending) audio.cue('win');
     else if (frame.deaths > previous.deaths) audio.cue('recover');
     else if (frame.collected > previous.collected) audio.cue('collect');
@@ -221,6 +226,7 @@ export function mountAdventure(
       const targetX = frame.hero.x * TILE,
         targetY = frame.hero.y * TILE;
       const smooth =
+        !snapCamera &&
         frame.mode === 'story' &&
         motion &&
         Math.hypot(this.hero.x - targetX, this.hero.y - targetY) < TILE * 3;
@@ -231,6 +237,10 @@ export function mountAdventure(
         Phaser.Math.Linear(this.hero.x, targetX, t),
         Phaser.Math.Linear(this.hero.y, targetY, t),
       );
+      if (snapCamera) {
+        this.cameras.main.centerOn(targetX, targetY);
+        snapCamera = false;
+      }
       this.hero
         .setFlipX(frame.hero.facing < 0)
         .setAngle(motion && moving ? Math.sin(time / 80) * 4 : 0);
@@ -299,6 +309,10 @@ export function mountAdventure(
     action(action, index) {
       if (!ready) return;
       keys.clear();
+      if (['restart', 'respawn', 'reset-room', 'undo'].includes(action)) {
+        snapCamera = true;
+        readableNotice.clear();
+      }
       if (story && action !== 'respawn')
         story = storyAction(
           story,

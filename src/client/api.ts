@@ -9,6 +9,10 @@ export interface User {
   active: boolean;
 }
 export interface Project {
+  local?: boolean;
+  deleted?: boolean;
+  saveAttempted?: boolean;
+  creationKey?: string;
   allowRemix?: boolean;
   source?: SourceCredit | null;
   id: string;
@@ -45,20 +49,31 @@ export class ApiError extends Error {
     super(message);
   }
 }
+let expectedUser: string | undefined;
+export function setExpectedUser(id?: string) {
+  expectedUser = id;
+}
 export async function api<T>(url: string, method = 'GET', body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch('/api' + url, {
       method,
       credentials: 'same-origin',
-      ...(body === undefined
-        ? {}
-        : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+      headers: {
+        ...(expectedUser && url !== '/login' ? { 'X-Workshop-User': expectedUser } : {}),
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch {
     throw new ApiError(0, '连接暂时不可用。已打开的作品仍可编辑，请导出或等待网络恢复后保存。');
   }
-  const data = await res.json();
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new ApiError(0, '服务器响应不完整，请重试或检查作品状态；本地草稿仍保留。');
+  }
   if (!res.ok) throw new ApiError(res.status, data.message ?? '请求失败');
   return data as T;
 }

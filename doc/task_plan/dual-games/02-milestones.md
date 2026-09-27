@@ -48,3 +48,11 @@ M6切片/边界见16-m6-contract.md，C61–C64；先S6.1框选，不用M3冻结
 
 ## M7 首页反馈迭代
 首页C71 frozen；分支feature/m7-home-template-gallery，契约见18-m7-contract.md，验证见19-m7-verification.md。C72整体删除在M7时待用户决定；后续永久删除语义已由D34/C82确定，尚未实现。
+
+## 已授权M8–M10
+用户已采纳03-next-iteration-proposal.md全部方案。M8当前active，C81–C84见20-m8-contract.md。
+|阶段|分支|范围|出口|
+|---|---|---|---|
+|M8|feature/m8-foundations-lifecycle|基础修复/首次保存/永久删除/录像工具|UT/E2E/review/首视频/11700部署|
+|M9|feature/m9-expandable-worlds|512×64/1MiB/索引与视口/小地图/历史性能|边界与性能/旧作兼容/视频/部署|
+|M10|feature/m10-long-worlds-polish|2048×64目标/容量实测/模板差异/总体回归|独立审计/实测预算/最终视频/部署|

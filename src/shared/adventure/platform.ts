@@ -102,6 +102,15 @@ export function platformCondition(s: PlatformSession, condition?: Condition): bo
 export function platformDoorOpen(s: PlatformSession, door: WorldObject): boolean {
   return platformCondition(s, door.condition) || s.state.heldDoors.includes(door.id);
 }
+/** The prompt and interaction action use exactly the same candidate ordering. */
+export function platformInteractions(s: PlatformSession): WorldObject[] {
+  const p = s.state;
+  const distance = (o: WorldObject) =>
+    Math.hypot(o.x + 0.5 - (p.x + PLAYER.width / 2), o.y + 0.5 - (p.y + PLAYER.height / 2));
+  return s.document.rooms[0].objects
+    .filter((o) => ['switch', 'sign'].includes(o.kind) && distance(o) < 1.8)
+    .sort((a, b) => distance(a) - distance(b) || a.id.localeCompare(b.id));
+}
 export function startPlatform(
   input: AdventureDocument,
   options: { assist?: boolean; from?: Location } = {},
@@ -205,6 +214,8 @@ function tick(s: PlatformSession, input: PlatformInput) {
     dt = PLAYER.step;
   const oldTime = p.elapsed;
   p.elapsed += dt;
+  if (Object.values(p.switches).some((until) => until > 0 && until > oldTime && until <= p.elapsed))
+    p.notice = '计时结束，开关已关闭。';
   p.heldDoors = room.objects
     .filter(
       (o) =>
@@ -306,14 +317,7 @@ function tick(s: PlatformSession, input: PlatformInput) {
   }
   if (s.interactQueued) {
     s.interactQueued = false;
-    const near = room.objects
-      .filter(
-        (o) =>
-          ['switch', 'sign'].includes(o.kind) &&
-          Math.hypot(o.x + 0.5 - (p.x + PLAYER.width / 2), o.y + 0.5 - (p.y + PLAYER.height / 2)) <
-            1.8,
-      )
-      .sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x));
+    const near = platformInteractions(s);
     const o = near[0];
     if (o?.kind === 'switch') {
       const on = p.switches[o.id] === -1 || p.switches[o.id] > p.elapsed;
@@ -371,7 +375,20 @@ function tick(s: PlatformSession, input: PlatformInput) {
         .every((o) => p.collected.includes(o.id));
       if (ready && platformCondition(s, o.condition))
         p.ending = o.ending || '你完成了这段小小的冒险！';
-      else p.notice = '再找找必需的物品或机关吧。';
+      else {
+        const missing = room.objects.filter(
+          (item) => item.kind === 'collectible' && item.required && !p.collected.includes(item.id),
+        );
+        p.notice = missing.length
+          ? `还需收集 ${missing.length} 件必需物品：${missing.map((item) => item.name || '礼物').join('、')}`
+          : '还需完成' +
+            (o.condition?.mode === 'any' ? '其中一项' : '') +
+            '：' +
+            (o.condition?.sources ?? [])
+              .filter((id) => !platformCondition(s, { mode: 'all', sources: [id] }))
+              .map((id) => room.objects.find((item) => item.id === id)?.name || '机关或物品')
+              .join('、');
+      }
     }
   }
   if (died) {

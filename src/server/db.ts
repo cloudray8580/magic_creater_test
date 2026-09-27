@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 export type Db = Database.Database;
+export const DATABASE_VERSION = 4;
 const migrations = [
   `
  CREATE TABLE classrooms(id TEXT PRIMARY KEY,name TEXT NOT NULL);
@@ -24,6 +25,9 @@ const migrations = [
  ALTER TABLE versions ADD COLUMN source TEXT;
  ALTER TABLE versions ADD COLUMN allow_remix INTEGER NOT NULL DEFAULT 0 CHECK(allow_remix IN (0,1));
  ALTER TABLE feedback ADD COLUMN location TEXT;
+`,
+  `
+ CREATE TABLE project_creations(owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,creation_key TEXT NOT NULL,project_id TEXT NOT NULL,PRIMARY KEY(owner_id,creation_key));
 `,
 ];
 export function openDatabase(path: string): Db {

@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import Database from 'better-sqlite3';
 import { backupDatabase } from '../dist/server/backup.js';
-import { openDatabase } from '../dist/server/db.js';
+import { openDatabase, DATABASE_VERSION } from '../dist/server/db.js';
 import { adventureTemplate } from '../dist/shared/adventure/templates.js';
 const [previous, source] = process.argv.slice(2);
 assert(previous && source, 'Usage: node scripts/verify-upgrade.mjs OLD_RELEASE SOURCE_DATABASE');
@@ -22,6 +22,9 @@ try {
   await backupDatabase(source, original);
   copyFileSync(original, candidate);
   db = new Database(original, { readonly: true });
+  for (const optional of ['assets', 'project_creations'])
+    if (db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(optional))
+      tables.push(optional);
   const schema = db.pragma('user_version', { simple: true });
   const before = Object.fromEntries(
     tables.map((table) => [
@@ -34,7 +37,7 @@ try {
   );
   db.close();
   db = openDatabase(candidate);
-  assert.equal(db.pragma('user_version', { simple: true }), 3);
+  assert.equal(db.pragma('user_version', { simple: true }), DATABASE_VERSION);
   for (const [table, data] of Object.entries(before))
     assert.equal(
       hash(
@@ -78,9 +81,29 @@ try {
   db.prepare(
     'INSERT INTO feedback(id,version_id,author_id,text,created_at,location) VALUES(?,?,?,?,1,?)',
   ).run('restore-feedback', 'restore-version', owner.id, '临时位置测试', location);
+  db.prepare('INSERT INTO project_creations VALUES(?,?,?)').run(
+    owner.id,
+    'restore-live-key',
+    'restore-project',
+  );
+  db.prepare('INSERT INTO project_creations VALUES(?,?,?)').run(
+    owner.id,
+    'restore-deleted-key',
+    'restore-deleted',
+  );
   db.close();
   await backupDatabase(candidate, backup);
+  db = new Database(backup, { readonly: true });
+  assert.equal(db.pragma('user_version', { simple: true }), DATABASE_VERSION);
+  db.close();
   db = openDatabase(backup);
+  assert.equal(
+    db
+      .prepare('SELECT COUNT(*) n FROM project_creations WHERE creation_key IN (?,?)')
+      .get('restore-live-key', 'restore-deleted-key').n,
+    2,
+  );
+  assert.equal(db.prepare('SELECT id FROM projects WHERE id=?').get('restore-deleted'), undefined);
   assert.deepEqual(db.prepare('SELECT data FROM assets WHERE id=?').get('restore-art').data, art);
   assert.deepEqual(
     db.prepare('SELECT source,allow_remix FROM versions WHERE id=?').get('restore-version'),
@@ -98,7 +121,11 @@ try {
   assert.deepEqual(db.pragma('foreign_key_check'), []);
   db.close();
   const old = await import(pathToFileURL(resolve(previous, 'dist/server/db.js')).href);
-  if (schema < 3) assert.throws(() => old.openDatabase(candidate), /版本/);
+  if (schema < DATABASE_VERSION)
+    assert.throws(() => {
+      const unexpected = old.openDatabase(candidate);
+      unexpected.close();
+    }, /版本/);
   // Match operational rollback: close all handles, discard WAL only for the stopped copy, restore original DB with old code.
   for (const suffix of ['-wal', '-shm']) rmSync(candidate + suffix, { force: true });
   copyFileSync(original, candidate);
@@ -111,10 +138,11 @@ try {
   console.log(
     JSON.stringify({
       sourceSchema: schema,
-      targetSchema: 3,
+      targetSchema: DATABASE_VERSION,
       migration: 'passed',
       existingData: 'unchanged',
       assetSourceLocationRestore: 'passed',
+      creationTombstoneRestore: 'passed',
       pairedRollback: 'passed',
       liveSource: 'read-only',
     }),

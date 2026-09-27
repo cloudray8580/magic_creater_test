@@ -111,7 +111,29 @@ function arrive(doc: AdventureDocument, state: StorySnapshot) {
           .every((item) => state.collected.includes(item.id));
         if (ready && conditionMet(doc, state, o.condition))
           state.ending = o.ending || '这个小世界，因为你变得不同了。';
-        else state.notice = '还有一件事情没有完成，看看背包和人物的提示吧。';
+        else {
+          const missing = objects(doc).filter(
+            (item) =>
+              item.kind === 'collectible' && item.required && !state.collected.includes(item.id),
+          );
+          const conditions = (o.condition?.sources ?? [])
+            .filter((id) => !conditionMet(doc, state, { mode: 'all', sources: [id] }))
+            .map((id) =>
+              id.startsWith('flag:')
+                ? id.slice(5)
+                : objects(doc).find((item) => item.id === id)?.name || '机关或物品',
+            );
+          state.notice = [
+            missing.length
+              ? `还需收集 ${missing.length} 件必需物品：${missing.map((item) => item.name || '礼物').join('、')}`
+              : '',
+            !conditionMet(doc, state, o.condition)
+              ? `还需完成${o.condition?.mode === 'any' ? '其中一项' : ''}：${conditions.join('、')}`
+              : '',
+          ]
+            .filter(Boolean)
+            .join('；');
+        }
       }
     }
 }

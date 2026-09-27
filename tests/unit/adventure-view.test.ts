@@ -4,6 +4,7 @@ import {
   frameStory,
   keyboardDirection,
   tileTexture,
+  ReadableNotice,
 } from '../../src/client/adventure/view.js';
 import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 import { startPlatform } from '../../src/shared/adventure/platform.js';
@@ -72,4 +73,54 @@ it('chooses the same exposed grass, earth and stone tiles for editor and runtime
     'stone',
   );
   expect(tileTexture('story', r, { x: 0, y: 3, kind: 'water' })).toBe('water');
+});
+
+it('uses the selected patrol art, visible bridge and matching centered interaction target', () => {
+  const d = adventureTemplate('moving-bridge');
+  const r = d.rooms[0];
+  r.objects.push({ id: 'guard', kind: 'patrol', x: 4, y: 4, skin: 'cat', route: { x: 6, y: 4 } });
+  r.objects.push({ id: 'talk', kind: 'sign', x: 2, y: 2, name: '中心路牌' });
+  const s = startPlatform(d);
+  s.state.x = 0.4;
+  s.state.y = 2;
+  const f = framePlatform(s);
+  expect(f.objects.find((o) => o.id === 'guard')?.texture).toBe('cat');
+  expect(f.objects.find((o) => o.texture === 'mover')?.height).toBe(1);
+  expect(f.prompt).toContain('中心路牌');
+});
+it('separates required goals, optional finds and timed switch state', () => {
+  const s = startPlatform(adventureTemplate());
+  s.document.rooms[0].objects.push({ id: 'clock', kind: 'switch', x: 4, y: 4, seconds: 3 });
+  s.state.switches.clock = 3;
+  s.state.elapsed = 1.2;
+  const f = framePlatform(s);
+  expect(f.requiredTotal).toBe(
+    s.document.rooms[0].objects.filter((o) => o.kind === 'collectible' && o.required).length,
+  );
+  expect(f.timer).toContain('2 秒');
+});
+
+it('keeps short notices readable for two seconds without blocking input', () => {
+  const notice = new ReadableNotice();
+  expect(notice.update('找到来信', 100)).toBe('找到来信');
+  expect(notice.update('', 250)).toBe('找到来信');
+  expect(notice.update('', 2099)).toBe('找到来信');
+  expect(notice.update('', 2100)).toBe('');
+  expect(notice.update('新提示', 2200)).toBe('新提示');
+  notice.clear();
+  expect(notice.update('', 2201)).toBe('');
+});
+
+it('shows repeated identical pickup notices as distinct events', () => {
+  const n = new ReadableNotice();
+  expect(n.update('找到礼物', 0, 'pickup-1')).toBe('找到礼物');
+  expect(n.update('找到礼物', 2500, 'pickup-1')).toBe('');
+  expect(n.update('找到礼物', 2600, 'pickup-2')).toBe('找到礼物');
+});
+it('explains the missing named requirement at a story goal', () => {
+  const d = adventureTemplate('forest-letter');
+  const room = d.rooms[1],
+    goal = room.objects.find((o) => o.kind === 'goal')!;
+  d.start = { roomId: room.id, x: goal.x, y: goal.y };
+  expect(startStory(d).state.notice).toContain(goal.condition!.sources[0].slice(5));
 });

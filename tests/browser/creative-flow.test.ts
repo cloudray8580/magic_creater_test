@@ -11,10 +11,14 @@ vi.mock('../../src/client/api.js', async (original) => ({
   ...(await original<object>()),
   api: mocks.api,
 }));
-vi.mock('../../src/client/drafts.js', () => ({
+vi.mock('../../src/client/drafts.js', async (original) => ({
+  ...(await original<object>()),
+  migrateDraft: async () => {},
   readDraft: async () => undefined,
   writeDraft: async () => {},
   holdDraft: async () => () => {},
+  removeDraft: async () => {},
+  listLocalDrafts: async () => [],
 }));
 vi.mock('../../src/client/AdventurePlay.js', () => ({
   AdventurePlay: ({ onLocation }: { onLocation?: (where: unknown) => void }) =>

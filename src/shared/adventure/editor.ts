@@ -1,7 +1,7 @@
+import { validateCreative as validateAdventure } from '../creative.js';
 import {
   BUILTIN_SKINS,
   ensure,
-  validateAdventure,
   type AdventureDocument,
   type Room,
   type WorldObject,

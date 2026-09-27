@@ -1,6 +1,7 @@
 import type { Room, WorldObject } from '../../shared/adventure/document.js';
 import {
   platformDoorOpen,
+  platformInteractions,
   platformCondition,
   movingPosition,
   PLAYER,
@@ -30,12 +31,16 @@ export interface GameFrame {
   hero: { x: number; y: number; facing: number; moving: boolean; airborne: boolean };
   collected: number;
   total: number;
+  requiredCollected: number;
+  requiredTotal: number;
+  timer: string;
   inventory: string[];
   deaths: number;
   steps: number;
   ending: string | null;
   dialogue: { title: string; text: string; choices: { label: string }[] } | null;
   notice: string;
+  noticeKey: string;
   prompt: string;
 }
 export function keyboardDirection(keys: Set<string>) {
@@ -66,12 +71,12 @@ export function framePlatform(s: PlatformSession): GameFrame {
     mode: 'platformer',
     room,
     objects: room.objects.map((o) => {
-      const v = visual(o, o.kind === 'patrol' ? 'bird' : (o.skin ?? o.kind));
+      const v = visual(o, o.skin ?? (o.kind === 'patrol' ? 'bird' : o.kind));
       if (o.kind === 'mover' || o.kind === 'patrol') {
         const pos = movingPosition(o, p.elapsed);
         v.x = pos.x + v.width / 2;
-        v.y = pos.y + (o.kind === 'mover' ? 0.25 : 1);
-        if (o.kind === 'mover') v.height = 0.3;
+        v.y = pos.y + (o.kind === 'mover' ? 1 - 7 / 128 : 1);
+        if (o.kind === 'mover') v.height = 1;
       }
       if (o.kind === 'door') v.texture = platformDoorOpen(s, o) ? 'door-open' : 'door';
       if (o.kind === 'switch')
@@ -90,16 +95,23 @@ export function framePlatform(s: PlatformSession): GameFrame {
     },
     collected: p.collected.length,
     total: room.objects.filter((o) => ['key', 'collectible'].includes(o.kind)).length,
+    requiredCollected: room.objects.filter(
+      (o) => o.kind === 'collectible' && o.required && p.collected.includes(o.id),
+    ).length,
+    requiredTotal: room.objects.filter((o) => o.kind === 'collectible' && o.required).length,
+    timer: room.objects
+      .filter((o) => o.kind === 'switch' && p.switches[o.id] > p.elapsed)
+      .map((o) => (o.name || '计时开关') + '：' + Math.ceil(p.switches[o.id] - p.elapsed) + ' 秒')
+      .join(' · '),
     inventory: [],
     deaths: p.deaths,
     steps: 0,
     ending: p.ending,
     dialogue: p.reading ? { ...p.reading, choices: [] } : null,
     notice: p.notice,
-    prompt: room.objects.some(
-      (o) => ['switch', 'sign'].includes(o.kind) && Math.hypot(o.x - p.x, o.y - p.y) < 1.8,
-    )
-      ? 'E · 互动'
+    noticeKey: p.notice + ':' + p.collected.length + ':' + JSON.stringify(p.switches),
+    prompt: platformInteractions(s).length
+      ? 'E · ' + (platformInteractions(s)[0].name || '互动')
       : '',
   };
 }
@@ -128,6 +140,13 @@ export function frameStory(s: StorySession): GameFrame {
     total: s.document.rooms
       .flatMap((r) => r.objects)
       .filter((o) => ['key', 'collectible'].includes(o.kind)).length,
+    requiredCollected: s.document.rooms
+      .flatMap((r) => r.objects)
+      .filter((o) => o.kind === 'collectible' && o.required && p.collected.includes(o.id)).length,
+    requiredTotal: s.document.rooms
+      .flatMap((r) => r.objects)
+      .filter((o) => o.kind === 'collectible' && o.required).length,
+    timer: '',
     inventory: p.inventory.map(
       (id) => s.document.rooms.flatMap((r) => r.objects).find((o) => o.id === id)?.name || '物品',
     ),
@@ -136,6 +155,7 @@ export function frameStory(s: StorySession): GameFrame {
     ending: p.ending,
     dialogue: storyDialogue(s),
     notice: p.notice,
+    noticeKey: p.notice + ':' + p.collected.length + ':' + JSON.stringify(p.switches),
     prompt: nearbyInteractions(s).length ? 'E · ' + (nearbyInteractions(s)[0].name || '互动') : '',
   };
 }
@@ -151,4 +171,24 @@ export function tileTexture(
   return room.tiles.some((t) => t.x === tile.x && t.y === tile.y - 1 && t.kind === 'solid')
     ? 'earth'
     : 'grass-edge';
+}
+
+/** Keep brief feedback readable while permitting immediate movement. */
+export class ReadableNotice {
+  private last = '';
+  private text = '';
+  private until = 0;
+  update(value: string, now: number, eventKey = value): string {
+    if (value && eventKey !== this.last) {
+      this.text = value;
+      this.until = now + 2000;
+    }
+    this.last = value ? eventKey : '';
+    return now < this.until ? this.text : '';
+  }
+  clear() {
+    this.last = '';
+    this.text = '';
+    this.until = 0;
+  }
 }
