@@ -51,6 +51,8 @@ async function start(draft?: unknown) {
       method = 'GET',
       body?: { document: Project['document']; revision: number },
     ) => {
+      const summary = url.includes('?summary=1');
+      url = url.split('?')[0];
       if (url === '/me')
         return {
           user: {
@@ -65,7 +67,19 @@ async function start(draft?: unknown) {
       if (url === '/projects')
         return method === 'POST'
           ? { ...project, document: body!.document }
-          : { projects: [project] };
+          : {
+              projects: [
+                summary
+                  ? {
+                      ...project,
+                      document: {
+                        title: project.document.title,
+                        schemaVersion: project.document.schemaVersion,
+                      },
+                    }
+                  : project,
+              ],
+            };
       if (url === '/projects/p') {
         if (method === 'PUT')
           project = { ...project, document: body!.document, revision: project.revision + 1 };

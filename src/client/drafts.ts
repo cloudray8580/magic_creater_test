@@ -10,6 +10,17 @@ export interface Draft {
   updatedAt?: number;
 }
 let queue = Promise.resolve();
+const pending = new Map<string, { snapshot: Draft; promise: Promise<void> }>();
+function enqueue<T>(work: () => Promise<T>, barrier = true): Promise<T> {
+  // Reads, deletes, migrations and clean snapshots must preserve their position in the queue.
+  if (barrier) pending.clear();
+  const task = queue.then(work);
+  queue = task.then(
+    () => {},
+    () => {},
+  );
+  return task;
+}
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const r = indexedDB.open('magic-creater-drafts', 1);
@@ -18,21 +29,22 @@ function open(): Promise<IDBDatabase> {
     r.onerror = () => reject(r.error);
   });
 }
-export async function readDraft(user: string, project: string): Promise<Draft | undefined> {
-  await queue;
-  const db = await open();
-  try {
-    return await new Promise((resolve, reject) => {
-      const r = db
-        .transaction('drafts')
-        .objectStore('drafts')
-        .get(user + ':' + project);
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-  } finally {
-    db.close();
-  }
+export function readDraft(user: string, project: string): Promise<Draft | undefined> {
+  return enqueue(async () => {
+    const db = await open();
+    try {
+      return await new Promise((resolve, reject) => {
+        const r = db
+          .transaction('drafts')
+          .objectStore('drafts')
+          .get(user + ':' + project);
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
 }
 export function writeDraft(
   user: string,
@@ -40,39 +52,47 @@ export function writeDraft(
   draft: Draft,
   force = false,
 ): Promise<void> {
-  const snapshot = structuredClone(draft);
-  const task = queue
-    .catch(() => {})
-    .then(async () => {
-      const db = await open();
-      try {
-        await new Promise<void>((resolve, reject) => {
-          const tx = db.transaction('drafts', 'readwrite');
-          const store = tx.objectStore('drafts'),
-            key = user + ':' + project;
-          const request = store.get(key);
-          request.onsuccess = () => {
-            const previous = request.result as Draft | undefined;
-            // A save may clear only the same snapshot. Another tab's unsaved work stays intact.
-            if (
-              !force &&
-              !snapshot.dirty &&
-              previous?.dirty &&
-              JSON.stringify(previous.document) !== JSON.stringify(snapshot.document)
-            )
-              return;
-            store.put(snapshot, key);
-          };
+  const key = user + ':' + project;
+  const existing = pending.get(key);
+  if (!force && draft.dirty && existing) {
+    existing.snapshot = structuredClone(draft);
+    return existing.promise;
+  }
+  const entry = { snapshot: structuredClone(draft), promise: Promise.resolve() };
+  if (force || !draft.dirty) pending.clear();
+  const task = enqueue(async () => {
+    if (pending.get(key) === entry) pending.delete(key);
+    const snapshot = entry.snapshot;
+    const db = await open();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('drafts', 'readwrite');
+        const store = tx.objectStore('drafts'),
+          key = user + ':' + project;
+        const request = store.get(key);
+        request.onsuccess = () => {
+          const previous = request.result as Draft | undefined;
+          // A save may clear only the same snapshot. Another tab's unsaved work stays intact.
+          if (
+            !force &&
+            !snapshot.dirty &&
+            previous?.dirty &&
+            JSON.stringify(previous.document) !== JSON.stringify(snapshot.document)
+          )
+            return;
+          store.put(snapshot, key);
+        };
 
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-          tx.onabort = () => reject(tx.error);
-        });
-      } finally {
-        db.close();
-      }
-    });
-  queue = task.catch(() => {});
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  }, false);
+  entry.promise = task;
+  if (!force && draft.dirty) pending.set(key, entry);
   return task;
 }
 
@@ -91,6 +111,7 @@ export function holdDraft(user: string, project: string): Promise<() => void> {
         }
         await new Promise<void>((unlock) =>
           resolve(() => {
+            pending.clear();
             void queue.then(unlock);
           }),
         );
@@ -100,38 +121,39 @@ export function holdDraft(user: string, project: string): Promise<() => void> {
 }
 
 /** Enumerate only this account's unsynchronized creations; malformed payloads remain recoverable. */
-export async function listLocalDrafts(
+export function listLocalDrafts(
   user: string,
   includeOrphans = false,
 ): Promise<{ id: string; draft: Draft }[]> {
-  await queue;
-  const db = await open();
-  try {
-    return await new Promise((resolve, reject) => {
-      const items: { id: string; draft: Draft }[] = [];
-      const r = db.transaction('drafts').objectStore('drafts').openCursor();
-      r.onsuccess = () => {
-        const cursor = r.result;
-        if (!cursor) {
-          resolve(items);
-          return;
-        }
-        const key = String(cursor.key);
-        if (
-          key.startsWith(user + ':') &&
-          (key.startsWith(user + ':local:') || (includeOrphans && cursor.value?.dirty))
-        )
-          items.push({ id: key.slice(user.length + 1), draft: cursor.value });
-        cursor.continue();
-      };
-      r.onerror = () => reject(r.error);
-    });
-  } finally {
-    db.close();
-  }
+  return enqueue(async () => {
+    const db = await open();
+    try {
+      return await new Promise((resolve, reject) => {
+        const items: { id: string; draft: Draft }[] = [];
+        const r = db.transaction('drafts').objectStore('drafts').openCursor();
+        r.onsuccess = () => {
+          const cursor = r.result;
+          if (!cursor) {
+            resolve(items);
+            return;
+          }
+          const key = String(cursor.key);
+          if (
+            key.startsWith(user + ':') &&
+            (key.startsWith(user + ':local:') || (includeOrphans && cursor.value?.dirty))
+          )
+            items.push({ id: key.slice(user.length + 1), draft: cursor.value });
+          cursor.continue();
+        };
+        r.onerror = () => reject(r.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
 }
 export function removeDraft(user: string, project: string): Promise<void> {
-  const task = queue.then(async () => {
+  const task = enqueue(async () => {
     const db = await open();
     try {
       await new Promise<void>((resolve, reject) => {
@@ -145,7 +167,6 @@ export function removeDraft(user: string, project: string): Promise<void> {
       db.close();
     }
   });
-  queue = task.catch(() => {});
   return task;
 }
 
@@ -166,7 +187,7 @@ export function migrateDraft(
   draft: Draft,
 ): Promise<void> {
   const snapshot = structuredClone(draft);
-  const task = queue.then(async () => {
+  const task = enqueue(async () => {
     const db = await open();
     try {
       await new Promise<void>((resolve, reject) => {
@@ -197,6 +218,5 @@ export function migrateDraft(
       db.close();
     }
   });
-  queue = task.catch(() => {});
   return task;
 }

@@ -222,7 +222,7 @@ it('changes atmosphere and map size with undo, while invalid edits leave the wor
   const before = structuredClone(latest);
   await field('地图宽度', '4');
   expect(latest).toEqual(before);
-  expect(host.querySelector('[role="status"]')!.textContent).toMatch(/范围|超出/);
+  expect(host.querySelector('[role="status"]')!.textContent).toMatch(/范围|超出|裁切/);
   await act(async () =>
     canvas.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true })),
   );
@@ -244,7 +244,7 @@ it('rejects an out-of-map drag instead of silently clamping the object to an edg
   await pointer(canvas, 'pointerdown', 24, 13);
   await pointer(canvas, 'pointerup', 45, 13);
   expect(latest).toEqual(before);
-  expect(host.querySelector('[role="status"]')!.textContent).toMatch(/范围|超出/);
+  expect(host.querySelector('[role="status"]')!.textContent).toMatch(/范围|超出|裁切/);
 });
 
 it('keeps the clicked preview cell while the pointer travels away to the preview button', async () => {

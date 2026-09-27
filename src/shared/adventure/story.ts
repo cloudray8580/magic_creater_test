@@ -1,6 +1,6 @@
+import { roomIndex } from './spatial.js';
 import {
   ensure,
-  isSolidAt,
   validateAdventure,
   type AdventureDocument,
   type Condition,
@@ -88,7 +88,16 @@ function blocked(
   y: number,
   skipBox?: string,
 ): boolean {
-  if (isSolidAt(room, x, y)) return true;
+  const terrain = roomIndex(room).at(x, y)?.kind;
+  if (
+    x < 0 ||
+    y < 0 ||
+    x >= room.width ||
+    y >= room.height ||
+    terrain === 'solid' ||
+    terrain === 'water'
+  )
+    return true;
   return room.objects.some((o) => {
     if (o.kind === 'box')
       return o.id !== skipBox && state.boxes[o.id]?.x === x && state.boxes[o.id]?.y === y;

@@ -1,6 +1,7 @@
 import { validateCreative as validateAdventure } from '../creative.js';
 import {
   BUILTIN_SKINS,
+  PLATFORM_LIMITS,
   ensure,
   type AdventureDocument,
   type Room,
@@ -36,7 +37,7 @@ function freshId(doc: AdventureDocument, base: string): string {
 export function strokeCells(a: Cell, b: Cell): Cell[] {
   ensure(
     [a.x, a.y, b.x, b.y].every(Number.isSafeInteger) &&
-      Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) <= 128,
+      Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y)) <= PLATFORM_LIMITS.width,
     '画笔超出范围',
   );
   const cells: Cell[] = [];
@@ -153,6 +154,32 @@ export function paintWorld(
           : !TERRAIN.includes(tool),
       '请在对应图层使用画笔',
     );
+  if (layer === 'terrain' && tool !== 'spawn') {
+    const drawn = new Map<string, Cell>();
+    for (const cell of cells) {
+      ensure(
+        Number.isSafeInteger(cell.x) &&
+          Number.isSafeInteger(cell.y) &&
+          cell.x >= 0 &&
+          cell.y >= 0 &&
+          cell.x < room.width &&
+          cell.y < room.height,
+        '画笔超出地图范围',
+      );
+      drawn.set(cell.x + ',' + cell.y, cell);
+    }
+    room.tiles = room.tiles.flatMap((t) => {
+      const key = t.x + ',' + t.y;
+      if (!drawn.has(key)) return [t];
+      drawn.delete(key);
+      return tool === 'erase' ? [] : [{ ...t, kind: tool as TileKind }];
+    });
+    if (tool !== 'erase')
+      room.tiles.push(
+        ...Array.from(drawn.values(), (cell) => ({ ...cell, kind: tool as TileKind })),
+      );
+    return validateAdventure(next);
+  }
   for (const cell of cells) {
     const { x, y } = cell;
     ensure(
@@ -235,16 +262,17 @@ export function copyObject(
     { room, object } = findObject(next, id);
   const clone = structuredClone(object);
   clone.id = freshId(next, object.kind + '-copy');
-  const positions = Array.from({ length: room.width * room.height }, (_, i) => ({
-    x: (object.x + 1 + i) % room.width,
-    y: (object.y + Math.floor((object.x + 1 + i) / room.width)) % room.height,
-  }));
   const dx = clone.route ? clone.route.x - clone.x : 0,
     dy = clone.route ? clone.route.y - clone.y : 0;
   const width = clone.width ?? 1,
     height = clone.height ?? 1;
-  const position = positions.find(
-    (p) =>
+  let position: Cell | undefined;
+  for (let i = 0; i < room.width * room.height; i++) {
+    const p = {
+      x: (object.x + 1 + i) % room.width,
+      y: (object.y + Math.floor((object.x + 1 + i) / room.width)) % room.height,
+    };
+    if (
       p.x + width <= room.width &&
       p.y + height <= room.height &&
       p.x + dx >= 0 &&
@@ -258,8 +286,12 @@ export function copyObject(
           p.x + width > o.x &&
           p.y < o.y + (o.height ?? 1) &&
           p.y + height > o.y,
-      ),
-  );
+      )
+    ) {
+      position = p;
+      break;
+    }
+  }
   ensure(position, '当前地图没有空位放置副本及其路线');
   if (clone.route) clone.route = { x: position.x + dx, y: position.y + dy };
   clone.x = position.x;
@@ -276,6 +308,17 @@ export function resizeRoom(
   const next = structuredClone(doc),
     room = next.rooms.find((r) => r.id === roomId);
   ensure(room, '房间不存在');
+  ensure(
+    !room.tiles.some((t) => t.x >= width || t.y >= height) &&
+      !room.objects.some(
+        (o) =>
+          o.x + (o.width ?? 1) > width ||
+          o.y + (o.height ?? 1) > height ||
+          (o.route && (o.route.x + (o.width ?? 1) > width || o.route.y + (o.height ?? 1) > height)),
+      ) &&
+      !(next.start?.roomId === roomId && (next.start.x >= width || next.start.y >= height)),
+    '缩小会裁切地形、物体、路线或起点，请先移动或删除边界外的内容',
+  );
   room.width = width;
   room.height = height;
   return validateAdventure(next);

@@ -76,7 +76,7 @@ describe('C32 atomic map editing', () => {
     expect(() =>
       updateObject(doc, 'gate', { condition: { mode: 'all', sources: ['missing'] } }),
     ).toThrow(/引用/);
-    expect(() => resizeRoom(doc, room, 10, 16)).toThrow(/范围|超出/);
+    expect(() => resizeRoom(doc, room, 10, 16)).toThrow(/范围|超出|裁切/);
     expect(resizeRoom(doc, room, 50, 16).rooms[0].width).toBe(50);
     expect(strokeCells({ x: 1, y: 1 }, { x: 3, y: 3 })).toEqual([
       { x: 1, y: 1 },

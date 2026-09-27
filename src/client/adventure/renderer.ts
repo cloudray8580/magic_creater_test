@@ -1,3 +1,4 @@
+import { roomIndex, intersects } from '../../shared/adventure/spatial.js';
 import Phaser from 'phaser';
 import {
   BUILTIN_SKINS,
@@ -100,6 +101,7 @@ export function mountAdventure(
   class World extends Phaser.Scene {
     private roomId = '';
     private pictures = new Map<string, Phaser.GameObjects.Image>();
+    private terrain = new Map<string, Phaser.GameObjects.Image>();
     private world: Phaser.GameObjects.GameObject[] = [];
     private hero!: Phaser.GameObjects.Image;
     private shadow!: Phaser.GameObjects.Ellipse;
@@ -141,7 +143,10 @@ export function mountAdventure(
     private buildRoom() {
       for (const item of this.world) item.destroy();
       this.world = [];
+      for (const image of this.pictures.values()) image.destroy();
+      for (const image of this.terrain.values()) image.destroy();
       this.pictures.clear();
+      this.terrain.clear();
       this.roomId = frame.room.id;
       const room = frame.room;
       this.cameras.main.setBounds(
@@ -163,19 +168,6 @@ export function mountAdventure(
           .setDepth(-2);
         this.world.push(ground);
       }
-      for (const tile of room.tiles) {
-        const texture = tileTexture(frame.mode, room, tile);
-        const item = this.add
-          .image((tile.x + 0.5) * TILE, (tile.y + 0.5) * TILE, texture)
-          .setDisplaySize(TILE + 0.5, TILE + 0.5)
-          .setDepth(0);
-        this.world.push(item);
-      }
-      for (const o of frame.objects) {
-        const item = this.add.image(o.x * TILE, o.y * TILE, o.texture).setOrigin(0.5, 1);
-        this.pictures.set(o.id, item);
-        this.world.push(item);
-      }
       this.hero.setPosition(frame.hero.x * TILE, frame.hero.y * TILE);
       if (frame.mode === 'platformer')
         this.cameras.main.startFollow(this.hero, false, 0.09, 0.09, -140, 25);
@@ -183,6 +175,75 @@ export function mountAdventure(
         this.cameras.main.startFollow(this.hero, false, 0.15, 0.15);
       }
       this.cameras.main.centerOn(this.hero.x, this.hero.y);
+    }
+    private syncVisible(time: number) {
+      const camera = this.cameras.main,
+        area = {
+          x: camera.scrollX / TILE - 3,
+          y: camera.scrollY / TILE - 3,
+          width: 960 / TILE + 6,
+          height: 576 / TILE + 6,
+        };
+      const visibleTiles = new Set<string>();
+      for (const tile of roomIndex(frame.room).query(area)) {
+        const key = tile.x + ',' + tile.y;
+        visibleTiles.add(key);
+        if (!this.terrain.has(key))
+          this.terrain.set(
+            key,
+            this.add
+              .image(
+                (tile.x + 0.5) * TILE,
+                (tile.y + 0.5) * TILE,
+                tileTexture(frame.mode, frame.room, tile),
+              )
+              .setDisplaySize(TILE + 0.5, TILE + 0.5)
+              .setDepth(0),
+          );
+      }
+      for (const [key, image] of this.terrain)
+        if (!visibleTiles.has(key)) {
+          image.destroy();
+          this.terrain.delete(key);
+        }
+      const visibleObjects = new Set<string>();
+      for (const [order, o] of frame.objects.entries()) {
+        if (
+          !o.visible ||
+          !intersects(area, {
+            x: o.x - o.width / 2,
+            y: o.y - o.height,
+            width: o.width,
+            height: o.height,
+          })
+        )
+          continue;
+        visibleObjects.add(o.id);
+        let image = this.pictures.get(o.id);
+        if (!image) {
+          image = this.add.image(0, 0, o.texture).setOrigin(0.5, 1);
+          this.pictures.set(o.id, image);
+        }
+        image
+          .setTexture(o.texture)
+          .setVisible(o.visible)
+          .setDisplaySize(o.width * TILE, o.height * TILE)
+          .setDepth(o.depth + order / 100000);
+        if (o.texture.startsWith('asset:')) {
+          const size = Math.min(o.width, o.height) * TILE;
+          image.setDisplaySize(size, size);
+        }
+        const float =
+          motion && ['collectible', 'key', 'portal'].includes(o.texture)
+            ? Math.sin(time / 400 + o.x) * 2.5
+            : 0;
+        image.setPosition(o.x * TILE, o.y * TILE + float);
+      }
+      for (const [key, image] of this.pictures)
+        if (!visibleObjects.has(key)) {
+          image.destroy();
+          this.pictures.delete(key);
+        }
     }
     update(time: number, delta: number) {
       if (destroyed || !this.hero) return;
@@ -206,23 +267,6 @@ export function mountAdventure(
         publish();
       }
       if (frame.room.id !== this.roomId) this.buildRoom();
-      for (const o of frame.objects) {
-        const image = this.pictures.get(o.id)!;
-        image
-          .setTexture(o.texture)
-          .setVisible(o.visible)
-          .setDisplaySize(o.width * TILE, o.height * TILE)
-          .setDepth(o.depth);
-        if (o.texture.startsWith('asset:')) {
-          const size = Math.min(o.width, o.height) * TILE;
-          image.setDisplaySize(size, size);
-        }
-        const float =
-          motion && ['collectible', 'key', 'portal'].includes(o.texture)
-            ? Math.sin(time / 400 + o.x) * 2.5
-            : 0;
-        image.setPosition(o.x * TILE, o.y * TILE + float);
-      }
       const targetX = frame.hero.x * TILE,
         targetY = frame.hero.y * TILE;
       const smooth =
@@ -245,6 +289,7 @@ export function mountAdventure(
         .setFlipX(frame.hero.facing < 0)
         .setAngle(motion && moving ? Math.sin(time / 80) * 4 : 0);
       this.hero.setDisplaySize(40, 50).setDepth(frame.mode === 'story' ? frame.hero.y + 3.5 : 5);
+      this.syncVisible(time);
       this.shadow.setPosition(this.hero.x, this.hero.y - 2).setDepth(this.hero.depth - 0.1);
       this.halo.setPosition(this.hero.x, this.hero.y - 2).setVisible(Boolean(frame.prompt));
       if (time >= reportAt) {

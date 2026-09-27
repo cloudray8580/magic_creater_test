@@ -47,14 +47,16 @@ M6切片/边界见16-m6-contract.md，C61–C64；先S6.1框选，不用M3冻结
 全部M2–M6已冻结；M6最终171 UT、11 E2E、整轮增量94.88%，11700部署与实际恢复通过，见17-m6-verification.md。现场真实学生与跨设备验证明确未完成，不计作开发交付门槛已验证的效果。
 
 ## M7 首页反馈迭代
-首页C71 frozen；分支feature/m7-home-template-gallery，契约见18-m7-contract.md，验证见19-m7-verification.md。C72整体删除在M7时待用户决定；后续永久删除语义已由D34/C82确定，尚未实现。
+首页C71 frozen；分支feature/m7-home-template-gallery，契约见18-m7-contract.md，验证见19-m7-verification.md。C72整体删除在M7时待用户决定；后续永久删除语义已由D34/C82确定，已于M8实现并冻结。
 
 ## 已授权M8–M10
-用户已采纳03-next-iteration-proposal.md全部方案。M8当前active，C81–C84见20-m8-contract.md。
+用户已采纳03-next-iteration-proposal.md全部方案。M8/M9已冻结，C81–C84见20-m8-contract.md。
 |阶段|分支|范围|出口|
 |---|---|---|---|
 |M8|feature/m8-foundations-lifecycle|基础修复/首次保存/永久删除/录像工具|UT/E2E/review/首视频/11700部署|
 |M9|feature/m9-expandable-worlds|512×64/1MiB/索引与视口/小地图/历史性能|边界与性能/旧作兼容/视频/部署|
 |M10|feature/m10-long-worlds-polish|2048×64目标/容量实测/模板差异/总体回归|独立审计/实测预算/最终视频/部署|
 
-M8已完成并冻结；验证见21-m8-verification.md。下一阶段M9，M10未开始。
+M8已完成并冻结；验证见21-m8-verification.md。M9已完成，下一阶段M10。
+
+M9 frozen；契约22-m9-contract.md，验证23-m9-verification.md，M8基线f7a3af5。

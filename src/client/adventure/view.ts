@@ -1,3 +1,4 @@
+import { roomIndex } from '../../shared/adventure/spatial.js';
 import type { Room, WorldObject } from '../../shared/adventure/document.js';
 import {
   platformDoorOpen,
@@ -168,9 +169,7 @@ export function tileTexture(
 ): string {
   if (tile.kind !== 'solid') return tile.kind;
   if (mode !== 'platformer' || room.ground !== 'grass') return 'stone';
-  return room.tiles.some((t) => t.x === tile.x && t.y === tile.y - 1 && t.kind === 'solid')
-    ? 'earth'
-    : 'grass-edge';
+  return roomIndex(room).at(tile.x, tile.y - 1)?.kind === 'solid' ? 'earth' : 'grass-edge';
 }
 
 /** Keep brief feedback readable while permitting immediate movement. */

@@ -77,3 +77,36 @@ it('keeps conflicting unsynchronized work during a first-save migration and lock
   expect((await readDraft(user, id))?.document).toEqual(a.document);
   await removeDraft(user, id);
 });
+it('coalesces queued dirty snapshots but preserves read, clean-write and deletion barriers', async () => {
+  const user = crypto.randomUUID(),
+    id = 'local:' + crypto.randomUUID();
+  const draft = { document: adventureTemplate(), revision: 1, dirty: true, local: true };
+  const a = writeDraft(user, id, draft);
+  const b = writeDraft(user, id, {
+    ...draft,
+    document: { ...draft.document, title: '合并后的第二笔' },
+  });
+  expect(a).toBe(b);
+  const firstRead = readDraft(user, id);
+  const c = writeDraft(user, id, {
+    ...draft,
+    document: { ...draft.document, title: '读取之后的第三笔' },
+  });
+  expect(c).not.toBe(a);
+  expect((await firstRead)?.document.title).toBe('合并后的第二笔');
+  await c;
+  // A clean snapshot cannot erase a different dirty snapshot.
+  await writeDraft(user, id, { ...draft, dirty: false });
+  expect((await readDraft(user, id))?.document.title).toBe('读取之后的第三笔');
+  const beforeDelete = writeDraft(user, id, draft);
+  const deletion = removeDraft(user, id);
+  const absent = readDraft(user, id);
+  const afterDelete = writeDraft(user, id, {
+    ...draft,
+    document: { ...draft.document, title: '删除后新建' },
+  });
+  await Promise.all([beforeDelete, deletion, afterDelete]);
+  expect(await absent).toBeUndefined();
+  expect((await readDraft(user, id))?.document.title).toBe('删除后新建');
+  await removeDraft(user, id);
+});

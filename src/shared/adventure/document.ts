@@ -83,6 +83,7 @@ export interface AdventureDocument {
   rooms: Room[];
   start: Location | null;
 }
+export const PLATFORM_LIMITS = { width: 512, height: 64, tiles: 8192, objects: 300 } as const;
 export const WORLD_LIMITS = {
   rooms: 6,
   objects: 300,
@@ -284,10 +285,24 @@ export function validateAdventure(value: unknown, playable = false): AdventureDo
     ensure(!roomIds.has(roomId), '房间编号重复');
     roomIds.add(roomId);
     text(r.name, 40, '房间名称', 1);
-    const width = integer(r.width, 4, kind === 'platformer' ? 128 : 32, '地图宽度');
-    const height = integer(r.height, 4, kind === 'platformer' ? 32 : 24, '地图高度');
+    const width = integer(
+      r.width,
+      4,
+      kind === 'platformer' ? PLATFORM_LIMITS.width : 32,
+      '地图宽度',
+    );
+    const height = integer(
+      r.height,
+      4,
+      kind === 'platformer' ? PLATFORM_LIMITS.height : 24,
+      '地图高度',
+    );
     member(r.ground, ['grass', 'stone', 'wood'], '地面');
-    const tiles = array(r.tiles, WORLD_LIMITS.tiles, '地形');
+    const tiles = array(
+      r.tiles,
+      kind === 'platformer' ? PLATFORM_LIMITS.tiles : WORLD_LIMITS.tiles,
+      '地形',
+    );
     tileCount += tiles.length;
     const cells = new Set<string>();
     for (const rawTile of tiles) {
@@ -302,7 +317,11 @@ export function validateAdventure(value: unknown, playable = false): AdventureDo
       ensure(!cells.has(x + ',' + y), '地形位置重复');
       cells.add(x + ',' + y);
     }
-    for (const rawObj of array(r.objects, WORLD_LIMITS.objects, '物体')) {
+    for (const rawObj of array(
+      r.objects,
+      kind === 'platformer' ? PLATFORM_LIMITS.objects : WORLD_LIMITS.objects,
+      '物体',
+    )) {
       ensure(rawObj !== null && typeof rawObj === 'object', '物体无效');
       const type = member(
         (rawObj as WorldObject).kind,
@@ -343,7 +362,8 @@ export function validateAdventure(value: unknown, playable = false): AdventureDo
       ids.set(oid, rawObj as WorldObject);
     }
   }
-  ensure(ids.size <= WORLD_LIMITS.objects && tileCount <= WORLD_LIMITS.tiles, '作品总容量超出限制');
+  const limits = kind === 'platformer' ? PLATFORM_LIMITS : WORLD_LIMITS;
+  ensure(ids.size <= limits.objects && tileCount <= limits.tiles, '作品总容量超出限制');
   const doc = value as AdventureDocument;
   for (const o of ids.values()) {
     if (playable && o.kind === 'checkpoint') {
