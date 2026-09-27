@@ -1105,3 +1105,48 @@ select {
     padding: 24px;
   }
 }
+
+.delete-dialog {
+  max-width: min(520px, calc(100vw - 40px));
+  border: 1px solid #d6c6bd;
+  border-radius: 16px;
+  padding: 28px;
+  color: #203c36;
+  background: #fffdf8;
+}
+.delete-dialog::backdrop {
+  background: #1f352d88;
+}
+.delete-dialog .row {
+  justify-content: flex-end;
+}
+.danger {
+  background: #a83c32;
+  color: white;
+  border-color: #a83c32;
+}
+.danger:hover {
+  background: #853028;
+}
+.danger-link {
+  color: #963a32;
+}
+
+.dialogue-card {
+  max-height: calc(100% - 36px);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.dialogue-card p {
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.dialogue-card strong,
+.dialogue-card .row {
+  flex-shrink: 0;
+}
+.game-hud {
+  flex-wrap: wrap;
+}

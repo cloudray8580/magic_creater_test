@@ -38,7 +38,7 @@ test('teacher, two creators, review, play, feedback and withdrawal', async ({ br
   await expect(b.getByRole('status')).toContainText('反馈已送出');
   await a.getByRole('button', { name: '刷新版本与反馈' }).click();
   await expect(a.getByText('我喜欢这条温柔的小路')).toBeVisible();
-  await expect(a.getByText('对应修订 2', { exact: false })).toBeVisible();
+  await expect(a.getByText('对应修订 1', { exact: false })).toBeVisible();
   await a.getByLabel('作品名称').fill('收到反馈后的花园');
   await a.getByRole('button', { name: '保存到服务器' }).click();
   await t.getByRole('button', { name: '刷新管理页' }).click();
@@ -61,7 +61,7 @@ test('teacher, two creators, review, play, feedback and withdrawal', async ({ br
   );
   await a.getByLabel('作品名称').fill('仅在内存中的草稿');
   await expect(a.getByText('本地保存失败，请立即导出文件', { exact: false })).toBeVisible();
-  await a.getByRole('button', { name: '试玩修订 2', exact: true }).click();
+  await a.getByRole('button', { name: '试玩修订 1', exact: true }).click();
   await expect(a.getByRole('heading', { name: '我的第一座花园', exact: true })).toBeVisible();
   await a.getByRole('button', { name: '返回编辑作品' }).click();
   await expect(a.getByLabel('作品名称')).toHaveValue('仅在内存中的草稿');
@@ -224,7 +224,8 @@ test('account switching clears privileged cached feedback even when storage and 
   );
   await p.getByText('经典格子玩法与作品导入', { exact: true }).click();
   await p.getByRole('button', { name: '从月光花园开始' }).click();
-  await expect(p.getByRole('alert')).toContainText('连接暂时不可用');
+  // Opening a temporary template no longer requests server history.
+  await expect(p.getByRole('alert')).toHaveCount(0);
   await expect(p.getByText('仅老师可见的反馈')).toHaveCount(0);
   await expect(p.getByText('本地存储不可用，请及时导出', { exact: false })).toBeVisible();
   await p.close();

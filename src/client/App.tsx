@@ -1,6 +1,22 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react';
-import { api, ApiError, type User, type Project, type Version, type Feedback } from './api.js';
-import { readDraft, writeDraft, holdDraft } from './drafts.js';
+import {
+  api,
+  ApiError,
+  setExpectedUser,
+  type User,
+  type Project,
+  type Version,
+  type Feedback,
+} from './api.js';
+import {
+  readDraft,
+  writeDraft,
+  holdDraft,
+  listLocalDrafts,
+  removeDraft,
+  migrateDraft,
+  projectLockId,
+} from './drafts.js';
 import {
   template,
   createHistory,
@@ -24,6 +40,7 @@ import { FeedbackMap } from './FeedbackMap.js';
 import { exportPortable } from './assets.js';
 import { BUNDLE_BYTES, parsePortable } from '../shared/portable.js';
 import { AdventurePlay } from './AdventurePlay.js';
+import { DeleteProjectDialog } from './DeleteProjectDialog.js';
 import { TemplateGallery } from './TemplateGallery.js';
 import { adventureTemplate, TEMPLATE_IDS, TEMPLATE_INFO } from '../shared/adventure/templates.js';
 import type { AdventureDocument, Location } from '../shared/adventure/document.js';
@@ -47,6 +64,8 @@ function download(doc: unknown, filename = 'creative-world.json') {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function App() {
+  const [deleteTarget, setDeleteTarget] = useState<Project>();
+  const actionPending = useRef(false);
   const currentLocation = useRef<Location | null>(null);
   const [feedbackLocation, setFeedbackLocation] = useState<Location>();
   const [locatedFeedback, setLocatedFeedback] = useState<{
@@ -92,14 +111,61 @@ export function App() {
     setLocatedFeedback({ document: version.document, feedback });
   }
   async function copyProject(p: Project, document?: GameDocument) {
+    if (p.local || p.deleted) {
+      const doc = validateDocument({
+        ...(document ?? p.document),
+        title: ((document ?? p.document).title + ' 副本').slice(0, 60),
+      });
+      await openProject(
+        await api<Project>('/projects', 'POST', {
+          document: doc,
+          creationKey: crypto.randomUUID(),
+        }),
+      );
+      return;
+    }
     await openProject(
       await api<Project>('/projects/' + p.id + '/copy', 'POST', document ? { document } : {}),
     );
   }
-  async function refreshMine() {
-    setProjects((await api<{ projects: Project[] }>('/projects')).projects);
+  async function refreshMine(owner = user?.id) {
+    const remote = (await api<{ projects: Project[] }>('/projects')).projects;
+    let local: Project[] = [];
+    if (owner)
+      try {
+        local = (await listLocalDrafts(owner, true))
+          .filter(({ id }) => !remote.some((p) => p.id === id))
+          .map(({ id, draft }) => {
+            let document: GameDocument;
+            try {
+              document = validateDocument(draft?.document);
+            } catch {
+              document = { ...template(), title: '未恢复的本地草稿' };
+            }
+            return {
+              id,
+              ownerId: owner,
+              document,
+              revision: draft?.revision ?? 1,
+              allowRemix: draft?.allowRemix,
+              creationKey: draft?.creationKey,
+              deleted: !id.startsWith('local:'),
+              updatedAt: draft?.updatedAt ?? 0,
+              local: id.startsWith('local:'),
+              saveAttempted: Boolean(draft?.saving),
+            };
+          });
+      } catch {
+        setMessage('本地草稿列表暂时无法读取；服务器作品已加载。');
+      }
+    setProjects([...local, ...remote]);
   }
   async function refreshHistory(id: string) {
+    if (id.startsWith('local:')) {
+      setVersions([]);
+      setFeedback([]);
+      return;
+    }
     const [v, f] = await Promise.all([
       api<{ versions: Version[] }>('/projects/' + id + '/versions'),
       api<{ feedback: Feedback[] }>('/projects/' + id + '/feedback'),
@@ -118,6 +184,7 @@ export function App() {
     setFeedback(f.feedback);
   }
   function clearAccountState() {
+    setExpectedUser(undefined);
     releaseEditor();
     setAssetBusy(false);
     setLocatedFeedback(undefined);
@@ -140,12 +207,15 @@ export function App() {
     setInvalidDraft(undefined);
     setPreviewFrom(undefined);
     setView('mine');
+    setDeleteTarget(undefined);
   }
   async function action(task: () => Promise<void>) {
+    if (actionPending.current) return;
     if (assetBusy) {
       setError('图片正在处理，请完成后再保存、导出或切换页面；仍可继续编辑。');
       return;
     }
+    actionPending.current = true;
     setBusy(true);
     setError('');
     setMessage('');
@@ -157,6 +227,7 @@ export function App() {
         clearAccountState();
       }
     } finally {
+      actionPending.current = false;
       setBusy(false);
     }
   }
@@ -164,9 +235,10 @@ export function App() {
     void (async () => {
       try {
         const me = await api<{ user: User; classroom: { name: string } }>('/me');
+        setExpectedUser(me.user.id);
         setUser(me.user);
         setClassroom(me.classroom.name);
-        await refreshMine();
+        await refreshMine(me.user.id);
       } catch (e) {
         if (!(e instanceof ApiError && e.status === 401))
           setError(e instanceof Error ? e.message : '连接失败');
@@ -176,10 +248,11 @@ export function App() {
     })();
   }, []);
   async function openProject(p: Project) {
-    const key = user!.id + ':' + p.id;
+    const lockId = projectLockId(p),
+      key = user!.id + ':' + lockId;
     if (editorLock.current?.key !== key) {
       releaseEditor();
-      const release = await holdDraft(user!.id, p.id);
+      const release = await holdDraft(user!.id, projectLockId(p));
       editorLock.current = { key, release };
     }
     let local,
@@ -211,7 +284,11 @@ export function App() {
       }
     }
     validateDocument(p.document);
-    setProject(restored ? { ...p, revision: restored.revision } : p);
+    setProject(
+      restored
+        ? { ...p, revision: restored.revision, allowRemix: restored.allowRemix ?? p.allowRemix }
+        : p,
+    );
     setHistory(createHistory(restored ? restored.document : p.document));
     setDirty(Boolean(restored));
     setPreview(false);
@@ -223,21 +300,82 @@ export function App() {
           ? '本地存储不可用，请及时导出'
           : restored
             ? '已恢复未保存的本地草稿'
-            : '与服务器一致',
+            : p.local
+              ? '未保存的新作品，修改后保留本地草稿'
+              : '与服务器一致',
     );
-    await refreshHistory(p.id);
+    if (!p.deleted) await refreshHistory(p.id);
   }
   async function returnToEditor() {
     if (!project || !user) return;
-    if (editorLock.current?.key === user.id + ':' + project.id && history) {
+    if (editorLock.current?.key === user.id + ':' + projectLockId(project) && history) {
       setView('editor');
       return;
     }
     await openProject(project);
   }
   async function create(document: GameDocument) {
-    const p = await api<Project>('/projects', 'POST', { document: validateDocument(document) });
-    await openProject(p);
+    await openProject({
+      id: 'local:' + crypto.randomUUID(),
+      ownerId: user!.id,
+      document: validateDocument(document),
+      revision: 1,
+      updatedAt: Date.now(),
+      local: true,
+    });
+  }
+  async function deleteProject(p: Project) {
+    const release = await holdDraft(user!.id, projectLockId(p));
+    try {
+      let target = p;
+      if (p.local && p.saveAttempted) {
+        const remote = (await api<{ projects: Project[] }>('/projects')).projects.find(
+          (item) => item.creationKey === p.id.slice(6),
+        );
+        if (remote) target = { ...remote, revision: p.revision };
+      }
+      if (!target.local) {
+        try {
+          await api('/projects/' + target.id, 'DELETE', { revision: target.revision });
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 404) {
+            /* Already absent. */
+          } else if (error instanceof ApiError && (error.status === 0 || error.status >= 500)) {
+            let absent = false;
+            try {
+              await api('/projects/' + target.id);
+            } catch (probe) {
+              absent = probe instanceof ApiError && probe.status === 404;
+            }
+            if (!absent) throw error;
+          } else throw error;
+        }
+      }
+      if (target.local) await removeDraft(user!.id, target.id);
+      const localAlias = target.creationKey ? 'local:' + target.creationKey : p.id;
+      setProjects((old) =>
+        old.filter((item) => item.id !== p.id && item.id !== target.id && item.id !== localAlias),
+      );
+      if (project?.id === p.id || project?.id === target.id) {
+        setProject(undefined);
+        setHistory(undefined);
+        setInvalidDraft(undefined);
+        setVersions([]);
+        setFeedback([]);
+        setDirty(false);
+      }
+      setMessage('作品已永久删除');
+      try {
+        if (!target.local) {
+          await removeDraft(user!.id, target.id);
+          if (localAlias !== target.id) await removeDraft(user!.id, localAlias);
+        }
+      } catch {
+        setMessage('服务器删除已完成，但本地草稿清理失败。请重新进入列表并删除残留草稿。');
+      }
+    } finally {
+      release();
+    }
   }
   async function navigate(next: View) {
     setPreview(false);
@@ -249,6 +387,12 @@ export function App() {
   }
   function persist(next: History<GameDocument>) {
     if (busy) return;
+    try {
+      validateDocument(next.present);
+    } catch (e) {
+      setError((e as Error).message);
+      return;
+    }
     if (history && JSON.stringify(next.present) === JSON.stringify(history.present)) return;
     setHistory(next);
     setDirty(true);
@@ -260,26 +404,94 @@ export function App() {
     void writeDraft(user!.id, project!.id, {
       document: next.present,
       revision: project!.revision,
+      allowRemix: project!.allowRemix,
+      creationKey: project!.creationKey,
       dirty: true,
+      ...(project!.local
+        ? { local: true, saving: project!.saveAttempted, updatedAt: Date.now() }
+        : {}),
     })
       .then(() => setDraftState('本地草稿已保存'))
       .catch(() => setDraftState('本地保存失败，请立即导出文件'));
   }
   async function save(allowRemix = project?.allowRemix ?? false): Promise<Project> {
     if (invalidDraft !== undefined) throw new Error('请先导出未恢复草稿，再重新加载服务器版本');
-    const p = await api<Project>('/projects/' + project!.id, 'PUT', {
-      document: validateDocument(history!.present),
-      revision: project!.revision,
+    if (project!.deleted) throw new Error('原作品已删除，请导出当前草稿或另存副本');
+    const previous = project!,
+      document = validateDocument(history!.present);
+    if (previous.local) {
+      setProject({ ...previous, saveAttempted: true, allowRemix });
+      try {
+        await writeDraft(user!.id, previous.id, {
+          document,
+          revision: 1,
+          allowRemix,
+          dirty: true,
+          local: true,
+          saving: true,
+          updatedAt: Date.now(),
+        });
+      } catch {
+        setDraftState('本地存储失败，正在尝试保存到服务器');
+      }
+    }
+    let p: Project;
+    try {
+      p = previous.local
+        ? await api<Project>('/projects', 'POST', {
+            document,
+            creationKey: previous.id.slice(6),
+            allowRemix,
+          })
+        : await api<Project>('/projects/' + previous.id, 'PUT', {
+            document,
+            revision: previous.revision,
+            allowRemix,
+          });
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 404 || error.status === 410)) {
+        setProject({ ...previous, deleted: true });
+        setDraftState('原作品已永久删除，请导出或另存副本');
+      }
+      throw error;
+    }
+    const differs =
+      JSON.stringify(p.document) !== JSON.stringify(document) ||
+      Boolean(p.allowRemix) !== allowRemix;
+    let localMaintained = true;
+    const draft = {
+      document,
+      revision: p.revision,
+      dirty: differs,
       allowRemix,
-    });
-    setProject(p);
-    setDirty(false);
-    await writeDraft(user!.id, p.id, { document: p.document, revision: p.revision, dirty: false });
-    setDraftState('与服务器一致');
-    setMessage('已保存到服务器');
+      creationKey: p.creationKey,
+    };
+    if (previous.local) {
+      // The creation key keeps the same lock while its draft changes storage keys.
+      try {
+        await migrateDraft(user!.id, previous.id, p.id, draft);
+      } catch (error) {
+        setDraftState('服务器已创建作品，本地草稿仍保留，请先导出或处理冲突');
+        throw error;
+      }
+    } else {
+      try {
+        await writeDraft(user!.id, p.id, draft);
+      } catch {
+        localMaintained = false;
+        setDraftState('服务器已保存，本地草稿维护失败；请及时导出当前内容');
+      }
+    }
+    setProject({ ...p, allowRemix });
+    setDirty(differs);
+    setMessage(
+      differs ? '服务器已找到此前保存的版本；当前改稿仍保留，请再次保存上传。' : '已保存到服务器',
+    );
+    if (localMaintained) setDraftState(differs ? '本地改稿仍待保存' : '与服务器一致');
     return p;
   }
   async function loadServer() {
+    if (project?.local) throw new Error('这份草稿尚未保存到服务器，请先导出或保存');
     if (!window.confirm('重新加载将替换当前本地草稿。需要保留时请先导出或另存副本。')) return;
     const p = await api<Project>('/projects/' + project!.id);
     await writeDraft(
@@ -322,11 +534,13 @@ export function App() {
           onSubmit={(e) => {
             const b = fields(e);
             void action(async () => {
+              setExpectedUser(undefined);
               await api('/login', 'POST', b);
               const me = await api<{ user: User; classroom: { name: string } }>('/me');
+              setExpectedUser(me.user.id);
               setUser(me.user);
               setClassroom(me.classroom.name);
-              await refreshMine();
+              await refreshMine(me.user.id);
             });
           }}
         >
@@ -384,6 +598,13 @@ export function App() {
         >
           退出登录
         </button>
+        <a
+          href="https://github.com/cloudray8580/magic_creater_test/releases/tag/m8"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          本次更新 · 一分钟演示
+        </a>
       </header>
       <nav>
         {(
@@ -413,6 +634,17 @@ export function App() {
           <div className="error" role="alert">
             {error}
           </div>
+        )}
+        {deleteTarget && (
+          <DeleteProjectDialog
+            project={deleteTarget}
+            onCancel={() => setDeleteTarget(undefined)}
+            onConfirm={() => {
+              const p = deleteTarget;
+              setDeleteTarget(undefined);
+              void action(() => deleteProject(p));
+            }}
+          />
         )}
         <fieldset disabled={busy} className="workspace">
           {locatedFeedback?.feedback.location && (
@@ -512,13 +744,21 @@ export function App() {
                     </div>
                     <h3>{p.document.title}</h3>
                     <SourceCredit source={p.source} />
-                    <p>服务器修订 {p.revision}</p>
+                    <p>
+                      {p.deleted
+                        ? '原作品已删除 · 本地救援草稿，可导出或另存副本'
+                        : p.local
+                          ? '未同步草稿 · 仅保存在此浏览器'
+                          : '服务器修订 ' + p.revision}
+                    </p>
                     <div className="row">
                       <button
                         className="primary"
                         onClick={() =>
                           void action(async () =>
-                            openProject(await api<Project>('/projects/' + p.id)),
+                            openProject(
+                              p.local || p.deleted ? p : await api<Project>('/projects/' + p.id),
+                            ),
                           )
                         }
                       >
@@ -534,6 +774,9 @@ export function App() {
                         导出
                       </button>
                       <button onClick={() => void action(() => copyProject(p))}>复制作品</button>
+                      <button className="danger-link" onClick={() => setDeleteTarget(p)}>
+                        删除作品
+                      </button>
                     </div>
                   </article>
                 ))}
@@ -588,11 +831,16 @@ export function App() {
                     onClick={() =>
                       void action(async () => {
                         validateDocument(history.present, true);
-                        const p = dirty ? await save() : project;
+                        const p = dirty || project.local ? await save() : project;
+                        if (
+                          JSON.stringify(p.document) !== JSON.stringify(history.present) ||
+                          Boolean(p.allowRemix) !== Boolean(project.allowRemix)
+                        )
+                          throw new Error('服务器版本或改编设置与当前选择不同，请先再次保存后提交');
                         await api('/projects/' + p.id + '/submit', 'POST', {
                           revision: p.revision,
                         });
-                        await refreshHistory(p.id);
+                        if (!p.deleted) await refreshHistory(p.id);
                         setMessage('已提交给老师，等待确认展示');
                       })
                     }
@@ -610,8 +858,13 @@ export function App() {
                     onChange={(e) => {
                       const allow = e.target.checked;
                       void action(async () => {
-                        await save(allow);
-                        setMessage('已保存改编设置，下次提交并展示后生效。');
+                        const saved = await save(allow);
+                        if (Boolean(saved.allowRemix) === allow)
+                          setMessage('已保存改编设置，下次提交并展示后生效。');
+                        else
+                          setMessage(
+                            '服务器保留了此前的改编设置；你的选择尚未上传，请再点保存到服务器。',
+                          );
                       });
                     }}
                   />
@@ -625,7 +878,7 @@ export function App() {
                 <>
                   <div hidden={preview} inert={busy} aria-busy={busy}>
                     <AdventureEditor
-                      key={user!.id + ':' + project.id}
+                      key={user!.id + ':' + projectLockId(project)}
                       userId={user!.id}
                       onAssetBusy={setAssetBusy}
                       document={history.present}
@@ -739,7 +992,12 @@ export function App() {
               )}
               <div className="savebar">
                 <span>
-                  {draftState} · {dirty ? '有尚未上传的修改' : '服务器修订 ' + project.revision}
+                  {draftState} ·{' '}
+                  {dirty
+                    ? '有尚未上传的修改'
+                    : project.local
+                      ? '尚未创建服务器作品'
+                      : '服务器修订 ' + project.revision}
                 </span>
                 <div className="row">
                   <button
@@ -759,7 +1017,12 @@ export function App() {
                   <button onClick={() => void action(() => copyProject(project, history.present))}>
                     另存副本
                   </button>
-                  <button onClick={() => void action(loadServer)}>重新加载服务器版本</button>
+                  <button
+                    disabled={project.local || project.deleted}
+                    onClick={() => void action(loadServer)}
+                  >
+                    重新加载服务器版本
+                  </button>
                 </div>
               </div>
               <section className="panel">

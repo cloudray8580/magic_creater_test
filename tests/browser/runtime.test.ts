@@ -257,3 +257,49 @@ it('keeps the cottage window visible outside the opaque floor of the original st
     if (data[i] === 153 && data[i + 1] === 189 && data[i + 2] === 181) windowPixels++;
   expect(windowPixels).toBeGreaterThan(400);
 });
+
+it('shows the hero in the first rendered frame after a long-distance respawn and restart', async () => {
+  host = document.createElement('div');
+  Object.assign(host.style, { width: '960px', height: '576px' });
+  document.body.append(host);
+  const art = document.createElement('canvas');
+  art.width = art.height = 32;
+  art.getContext('2d')!.fillStyle = '#fff';
+  art.getContext('2d')!.fillRect(0, 0, 32, 32);
+  const doc = adventureTemplate();
+  doc.hero = { skin: 'asset:camera-hero', tint: '#ff0000', accessory: 'none' };
+  const room = doc.rooms[0];
+  room.width = 128;
+  room.objects = [{ id: 'finish', kind: 'goal', x: 126, y: 13 }];
+  room.tiles = Array.from({ length: 128 }, (_, x) => ({ x, y: 14, kind: 'solid' as const }));
+  let frame: GameFrame | undefined;
+  controls = mountAdventure(host, doc, {
+    assetUrls: { 'camera-hero': art.toDataURL() },
+    onFrame: (f) => {
+      frame = f;
+    },
+    onError: (e) => {
+      throw new Error(e);
+    },
+  });
+  await expect.poll(() => frame?.room.id).toBe('trail');
+  controls.motion(false);
+  controls.pause(false);
+  for (const action of ['respawn', 'restart'] as const) {
+    controls.key('ArrowRight', true);
+    await expect.poll(() => frame!.hero.x, { timeout: 8000, interval: 16 }).toBeGreaterThan(25);
+    controls.key('ArrowRight', false);
+    controls.action(action);
+    controls.pause(true);
+    await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
+    const pixels = host
+      .querySelector('canvas')!
+      .getContext('2d')!
+      .getImageData(0, 0, 960, 576).data;
+    let red = 0;
+    for (let i = 0; i < pixels.length; i += 4)
+      if (pixels[i] === 255 && pixels[i + 1] === 0 && pixels[i + 2] === 0) red++;
+    expect(red).toBeGreaterThan(300);
+    controls.pause(false);
+  }
+}, 20000);

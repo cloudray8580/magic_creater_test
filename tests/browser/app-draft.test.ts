@@ -8,15 +8,26 @@ import {
   TEMPLATE_INFO,
 } from '../../src/shared/adventure/templates.js';
 import type { Project } from '../../src/client/api.js';
-const mock = vi.hoisted(() => ({ api: vi.fn(), read: vi.fn(), write: vi.fn(), hold: vi.fn() }));
+const mock = vi.hoisted(() => ({
+  api: vi.fn(),
+  read: vi.fn(),
+  write: vi.fn(),
+  hold: vi.fn(),
+  remove: vi.fn(),
+  list: vi.fn(),
+}));
 vi.mock('../../src/client/api.js', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   api: mock.api,
 }));
-vi.mock('../../src/client/drafts.js', () => ({
+vi.mock('../../src/client/drafts.js', async (original) => ({
+  ...(await original<object>()),
+  migrateDraft: async () => {},
   readDraft: mock.read,
   writeDraft: mock.write,
   holdDraft: mock.hold,
+  removeDraft: mock.remove,
+  listLocalDrafts: mock.list,
 }));
 vi.mock('../../src/client/AdventurePlay.js', () => ({ AdventurePlay: () => '绘本试玩' }));
 let root: Root, host: HTMLDivElement, project: Project;
@@ -31,6 +42,8 @@ async function start(draft?: unknown) {
   project = { id: 'p', ownerId: 'u', revision: 2, updatedAt: 1, document: adventureTemplate() };
   mock.read.mockResolvedValue(draft);
   mock.write.mockResolvedValue(undefined);
+  mock.remove.mockResolvedValue(undefined);
+  mock.list.mockResolvedValue([]);
   mock.hold.mockResolvedValue(() => {});
   mock.api.mockImplementation(
     async (
@@ -262,8 +275,131 @@ it('selects all six starting documents and previews without creating a project',
     await act(async () =>
       (host.querySelector('[aria-label="开始创作' + title + '"]') as HTMLButtonElement).click(),
     );
-    expect(mock.api).toHaveBeenCalledWith('/projects', 'POST', { document: adventureTemplate(id) });
+    expect(mock.api.mock.calls.filter((c) => c[1] === 'POST')).toHaveLength(before);
     expect(host.querySelector('.section-heading h1')?.textContent).toBe(title);
     await click('我的作品');
   }
+});
+
+it('opens an untouched template without creating, keeps edits locally, and creates on explicit first save', async () => {
+  await start();
+  await click('我的作品');
+  const create = () =>
+    act(async () =>
+      (host.querySelector('[aria-label="开始创作云间邮差"]') as HTMLButtonElement).click(),
+    );
+  await create();
+  expect(mock.api.mock.calls.some((c) => c[1] === 'POST')).toBe(false);
+  expect(mock.write).not.toHaveBeenCalled();
+  await click('我的作品');
+  await create();
+  await title('我第一次创作');
+  expect(mock.write).toHaveBeenLastCalledWith(
+    'u',
+    expect.stringMatching(/^local:/),
+    expect.objectContaining({
+      local: true,
+      dirty: true,
+      document: expect.objectContaining({ title: '我第一次创作' }),
+    }),
+  );
+  await click('保存到服务器');
+  expect(mock.api).toHaveBeenCalledWith(
+    '/projects',
+    'POST',
+    expect.objectContaining({
+      creationKey: expect.stringMatching(/^[0-9a-f-]{36}$/),
+      document: expect.objectContaining({ title: '我第一次创作' }),
+    }),
+  );
+  expect(
+    mock.api.mock.calls.filter(([url, method]) => url === '/projects' && method === 'POST'),
+  ).toHaveLength(1);
+});
+it('requires explicit irreversible deletion confirmation and preserves work on cancel or server failure', async () => {
+  await start();
+  await click('我的作品');
+  await click('删除作品');
+  expect(host.querySelector('dialog')?.textContent).toContain('无法在应用中恢复');
+  await click('取消');
+  expect(mock.api.mock.calls.some((c) => c[1] === 'DELETE')).toBe(false);
+  const prior = mock.api.getMockImplementation()!;
+  mock.api.mockImplementation(async (url, method, body) => {
+    if (method === 'DELETE') throw new Error('删除失败，请重试');
+    return prior(url, method, body);
+  });
+  await click('删除作品');
+  await click('永久删除');
+  expect(host.textContent).toContain('删除失败，请重试');
+  expect(mock.remove).not.toHaveBeenCalled();
+  expect(host.querySelectorAll('.cards .card')).toHaveLength(1);
+});
+
+it('retains a visible maintenance warning after server save succeeds but IndexedDB fails', async () => {
+  await start();
+  await title('内存中的稿');
+  mock.write.mockRejectedValueOnce(new Error('quota'));
+  await click('保存到服务器');
+  expect(host.textContent).toContain('本地草稿维护失败');
+});
+it('keeps an orphaned server draft accessible for rescue and blocks saving to its deleted identity', async () => {
+  await start();
+  const draft = {
+    document: { ...project.document, title: '保留我的改稿' },
+    revision: 2,
+    dirty: true,
+  };
+  mock.list.mockResolvedValue([{ id: 'gone', draft }]);
+  mock.read.mockResolvedValue(draft);
+  await click('我的作品');
+  const rescue = Array.from(host.querySelectorAll('article.card')).find((card) =>
+    card.textContent?.includes('保留我的改稿'),
+  )!;
+  expect(rescue.textContent).toContain('原作品已删除');
+  await act(async () => (rescue.querySelector('button') as HTMLButtonElement).click());
+  expect(
+    Array.from(host.querySelectorAll('label'))
+      .find((l) => l.textContent === '作品名称')
+      ?.querySelector('input')?.value,
+  ).toBe('保留我的改稿');
+  await click('保存到服务器');
+  expect(host.textContent).toContain('原作品已删除');
+  expect(mock.api.mock.calls.some((c) => c[0] === '/projects/gone')).toBe(false);
+});
+
+it('keeps a changed remix setting pending when a first-save retry returns the earlier setting', async () => {
+  await start();
+  await click('我的作品');
+  await act(async () =>
+    (host.querySelector('[aria-label="开始创作云间邮差"]') as HTMLButtonElement).click(),
+  );
+  const checkbox = Array.from(host.querySelectorAll('label'))
+    .find((l) => l.textContent?.includes('保存并允许同伴改编'))!
+    .querySelector('input')!;
+  await act(async () => checkbox.click());
+  expect(host.textContent).toContain('你的选择尚未上传');
+  expect(checkbox.checked).toBe(true);
+  await click('保存到服务器');
+  expect(mock.api).toHaveBeenLastCalledWith(
+    '/projects/p',
+    'PUT',
+    expect.objectContaining({ allowRemix: true }),
+  );
+});
+
+it('blocks submitting a retry when its server remix permission differs from the visible selection', async () => {
+  await start();
+  await click('我的作品');
+  await act(async () =>
+    (host.querySelector('[aria-label="开始创作云间邮差"]') as HTMLButtonElement).click(),
+  );
+  const original = mock.api.getMockImplementation()!;
+  mock.api.mockImplementation(async (url, method, body) =>
+    url === '/projects' && method === 'POST'
+      ? { ...project, document: body.document, allowRemix: true }
+      : original(url, method, body),
+  );
+  await click('提交给老师');
+  expect(host.textContent).toContain('改编设置与当前选择不同');
+  expect(mock.api.mock.calls.some((c) => c[0].endsWith('/submit'))).toBe(false);
 });

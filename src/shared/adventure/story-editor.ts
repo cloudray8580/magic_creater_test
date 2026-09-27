@@ -1,6 +1,6 @@
+import { validateCreative as validateAdventure } from '../creative.js';
 import {
   ensure,
-  validateAdventure,
   WORLD_LIMITS,
   type AdventureDocument,
   type Room,

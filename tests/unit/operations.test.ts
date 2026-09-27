@@ -280,3 +280,76 @@ it('restores image bytes, references, frozen versions and file attribution from 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it('WAL backup preserves first-save idempotency and permanent deletion tombstones', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'magic-creation-backup-')),
+    source = join(dir, 'live.sqlite'),
+    copy = join(dir, 'copy.sqlite');
+  const origin = 'http://127.0.0.1';
+  let live: Awaited<ReturnType<typeof createApp>> | undefined, restored: typeof live;
+  try {
+    await runBootstrap({ APP_DATABASE: source, BOOTSTRAP_PASSWORD: 'test-password-123' });
+    live = await createApp({ databasePath: source, origins: [origin] });
+    const login = await live.app.inject({
+      method: 'POST',
+      url: '/api/login',
+      headers: { origin },
+      payload: { username: 'teacher', password: 'test-password-123' },
+    });
+    const headers = { origin, cookie: String(login.headers['set-cookie']).split(';')[0] };
+    const keyA = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      keyB = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+    const payload = { document: adventureTemplate(), creationKey: keyA, allowRemix: true };
+    const p = (
+      await live.app.inject({ method: 'POST', url: '/api/projects', headers, payload })
+    ).json();
+    const gone = (
+      await live.app.inject({
+        method: 'POST',
+        url: '/api/projects',
+        headers,
+        payload: { ...payload, creationKey: keyB },
+      })
+    ).json();
+    expect(
+      (
+        await live.app.inject({
+          method: 'DELETE',
+          url: '/api/projects/' + gone.id,
+          headers,
+          payload: { revision: 1 },
+        })
+      ).statusCode,
+    ).toBe(200);
+    await backupDatabase(source, copy);
+    const raw = new Database(copy, { readonly: true });
+    expect(raw.pragma('user_version', { simple: true })).toBe(4);
+    raw.close();
+    restored = await createApp({ databasePath: copy, origins: [origin] });
+    const retried = await restored.app.inject({
+      method: 'POST',
+      url: '/api/projects',
+      headers,
+      payload,
+    });
+    expect(retried.statusCode).toBe(200);
+    expect(retried.json()).toEqual(p);
+    expect(
+      (
+        await restored.app.inject({
+          method: 'POST',
+          url: '/api/projects',
+          headers,
+          payload: { ...payload, creationKey: keyB },
+        })
+      ).statusCode,
+    ).toBe(410);
+    expect(restored.db.prepare('SELECT COUNT(*) n FROM projects').get()).toEqual({ n: 1 });
+    expect(restored.db.prepare('SELECT COUNT(*) n FROM project_creations').get()).toEqual({ n: 2 });
+    expect(restored.db.pragma('foreign_key_check')).toEqual([]);
+  } finally {
+    await restored?.app.close();
+    await live?.app.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -42,6 +42,8 @@ const release = execFileSync(
   ['--user', 'show', 'magic-creater.service', '--property=WorkingDirectory', '--value'],
   { encoding: 'utf8' },
 ).trim();
+const { DATABASE_VERSION } = await import(pathToFileURL(join(release, 'dist/server/db.js')).href);
+assert.equal((await (await fetch(origin + '/api/health')).json()).database, DATABASE_VERSION);
 const commit = readFileSync(join(release, 'COMMIT'), 'utf8').trim();
 assert.match(commit, /^[a-f0-9]{40}$/);
 // The final acceptance record can be committed after deployment without changing the release.
@@ -90,6 +92,9 @@ const restore = mkdtempSync(join(tmpdir(), 'magic-restore-')),
 let context;
 try {
   copyFileSync(join(base, 'backups', backup), databasePath);
+  const raw = new Database(databasePath, { readonly: true });
+  assert.equal(raw.pragma('user_version', { simple: true }), DATABASE_VERSION);
+  raw.close();
   const { startServer } = await import(pathToFileURL(join(release, 'dist/server/main.js')).href);
   context = await startServer({
     databasePath,
@@ -112,11 +117,23 @@ try {
   });
   assert.equal(result.statusCode, 200);
   assert.equal((await context.app.inject('/')).statusCode, 200);
-  assert.equal(context.db.pragma('user_version', { simple: true }), 3);
+  assert.equal(context.db.pragma('user_version', { simple: true }), DATABASE_VERSION);
   assert(process.argv[2], 'Pass the pre-upgrade SQLite snapshot to verify existing content');
   const original = new Database(process.argv[2], { readonly: true, fileMustExist: true });
   try {
-    for (const table of ['users', 'classrooms', 'projects', 'versions', 'feedback']) {
+    for (const table of [
+      'users',
+      'classrooms',
+      'projects',
+      'versions',
+      'feedback',
+      'assets',
+      'project_creations',
+    ]) {
+      if (
+        !original.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(table)
+      )
+        continue;
       const cols = original
         .pragma('table_info(' + table + ')')
         .map((c) => c.name)
@@ -132,17 +149,16 @@ try {
     original.close();
   }
   const counts = Object.fromEntries(
-    ['users', 'classrooms', 'projects', 'versions', 'feedback', 'assets'].map((t) => [
-      t,
-      context.db.prepare('SELECT COUNT(*) AS n FROM ' + t).get().n,
-    ]),
+    ['users', 'classrooms', 'projects', 'versions', 'feedback', 'assets', 'project_creations'].map(
+      (t) => [t, context.db.prepare('SELECT COUNT(*) AS n FROM ' + t).get().n],
+    ),
   );
   console.log(
     JSON.stringify({
       service: 'active',
       release,
       commit,
-      schema: 3,
+      schema: DATABASE_VERSION,
       frontendResources: resources.length,
       existingContent: 'unchanged',
       restartSession: 'passed',

@@ -3,6 +3,11 @@ export interface Draft {
   document: GameDocument;
   revision: number;
   dirty: boolean;
+  local?: boolean;
+  saving?: boolean;
+  allowRemix?: boolean;
+  creationKey?: string;
+  updatedAt?: number;
 }
 let queue = Promise.resolve();
 function open(): Promise<IDBDatabase> {
@@ -92,4 +97,106 @@ export function holdDraft(user: string, project: string): Promise<() => void> {
       })
       .catch(reject);
   });
+}
+
+/** Enumerate only this account's unsynchronized creations; malformed payloads remain recoverable. */
+export async function listLocalDrafts(
+  user: string,
+  includeOrphans = false,
+): Promise<{ id: string; draft: Draft }[]> {
+  await queue;
+  const db = await open();
+  try {
+    return await new Promise((resolve, reject) => {
+      const items: { id: string; draft: Draft }[] = [];
+      const r = db.transaction('drafts').objectStore('drafts').openCursor();
+      r.onsuccess = () => {
+        const cursor = r.result;
+        if (!cursor) {
+          resolve(items);
+          return;
+        }
+        const key = String(cursor.key);
+        if (
+          key.startsWith(user + ':') &&
+          (key.startsWith(user + ':local:') || (includeOrphans && cursor.value?.dirty))
+        )
+          items.push({ id: key.slice(user.length + 1), draft: cursor.value });
+        cursor.continue();
+      };
+      r.onerror = () => reject(r.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+export function removeDraft(user: string, project: string): Promise<void> {
+  const task = queue.then(async () => {
+    const db = await open();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('drafts', 'readwrite');
+        tx.objectStore('drafts').delete(user + ':' + project);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+  queue = task.catch(() => {});
+  return task;
+}
+
+/** Local and persisted aliases of a creation share one editor lock. */
+export function projectLockId(project: {
+  id: string;
+  local?: boolean;
+  creationKey?: string;
+}): string {
+  const key = project.local ? project.id.slice(6) : project.creationKey;
+  return key ? 'creation:' + key : project.id;
+}
+/** Move a draft atomically without replacing another unsynchronized edit. */
+export function migrateDraft(
+  user: string,
+  local: string,
+  project: string,
+  draft: Draft,
+): Promise<void> {
+  const snapshot = structuredClone(draft);
+  const task = queue.then(async () => {
+    const db = await open();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction('drafts', 'readwrite'),
+          store = tx.objectStore('drafts');
+        let conflict: Error | undefined;
+        const request = store.get(user + ':' + project);
+        request.onsuccess = () => {
+          const previous = request.result as Draft | undefined;
+          if (
+            previous?.dirty &&
+            JSON.stringify(previous.document) !== JSON.stringify(snapshot.document)
+          ) {
+            conflict = new Error(
+              '服务器作品还有另一份未同步草稿，两份内容均已保留。请返回列表分别导出后处理。',
+            );
+            tx.abort();
+            return;
+          }
+          store.put(snapshot, user + ':' + project);
+          store.delete(user + ':' + local);
+        };
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(conflict ?? tx.error);
+      });
+    } finally {
+      db.close();
+    }
+  });
+  queue = task.catch(() => {});
+  return task;
 }
