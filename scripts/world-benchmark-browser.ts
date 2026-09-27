@@ -10,17 +10,22 @@ import { writeDraft, readDraft, removeDraft } from '../src/client/drafts.js';
 import { mountAdventure } from '../src/client/adventure/renderer.js';
 import '../src/client/style.css';
 export async function benchmark(kind: 'empty' | 'sparse' | 'dense') {
+  const longTasks: number[] = [];
+  const observer = new PerformanceObserver((list) =>
+    longTasks.push(...list.getEntries().map((e) => e.duration)),
+  );
+  observer.observe({ type: 'longtask' });
   const d = adventureTemplate(),
     r = d.rooms[0];
   r.width = PLATFORM_LIMITS.width;
   r.height = 64;
-  d.start = { roomId: r.id, x: 2, y: 46 };
+  d.start = { roomId: r.id, x: 2, y: 64 - Math.ceil(PLATFORM_LIMITS.tiles / r.width) - 2 };
   r.tiles =
     kind === 'empty'
       ? []
-      : Array.from({ length: 8192 }, (_, i) => ({
+      : Array.from({ length: PLATFORM_LIMITS.tiles }, (_, i) => ({
           x: i % r.width,
-          y: 64 - Math.ceil(8192 / r.width) + Math.floor(i / r.width),
+          y: 64 - Math.ceil(PLATFORM_LIMITS.tiles / r.width) + Math.floor(i / r.width),
           kind: 'solid' as const,
         }));
   r.objects = [
@@ -28,25 +33,31 @@ export async function benchmark(kind: 'empty' | 'sparse' | 'dense') {
       id: 'goal',
       kind: 'goal',
       x: r.width - 3,
-      y: 46,
+      y: d.start!.y,
       condition: { mode: 'all', sources: [] },
       ending: '旅程完成',
     },
   ];
   if (kind !== 'empty')
-    for (let i = 0; i < 299; i++)
+    for (let i = 0; i < PLATFORM_LIMITS.objects - 1; i++)
       r.objects.push(
         kind === 'dense'
           ? {
               id: 'mover-' + i,
               kind: 'mover',
-              x: 10 + (i % 12),
-              y: 28 + Math.floor(i / 12),
-              route: { x: 28 + (i % 12), y: 28 + Math.floor(i / 12) },
+              x: 10 + (i % 20),
+              y: 24 + Math.floor(i / 20),
+              route: { x: 40 + (i % 20), y: 24 + Math.floor(i / 20) },
               width: 2,
               speed: 'fast',
             }
-          : { id: 'flower-' + i, kind: 'decoration', skin: 'flower', x: (i * 17) % r.width, y: 46 },
+          : {
+              id: 'flower-' + i,
+              kind: 'decoration',
+              skin: 'flower',
+              x: (i * 17) % r.width,
+              y: d.start!.y,
+            },
       );
   validateAdventure(d);
   document.querySelector('#root')?.remove();
@@ -150,7 +161,10 @@ export async function benchmark(kind: 'empty' | 'sparse' | 'dense') {
   if (errors.length) throw Error(errors.join(';'));
   const percentile = (values: number[], p: number) =>
     [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(values.length * p))];
+  observer.disconnect();
   return {
+    longTaskCount: longTasks.length,
+    longTaskMaxMs: Math.max(0, ...longTasks),
     kind,
     width: r.width,
     height: r.height,
@@ -161,9 +175,9 @@ export async function benchmark(kind: 'empty' | 'sparse' | 'dense') {
     restoreMs,
     editP50Ms: percentile(edits, 0.5),
     editP95Ms: percentile(edits, 0.95),
-    frameP50Ms: percentile(frames, 0.5),
-    frameP95Ms: percentile(frames, 0.95),
-    meanFps: 1000 / (frames.reduce((a, b) => a + b, 0) / frames.length),
+    rafIntervalP50Ms: percentile(frames, 0.5),
+    rafIntervalP95Ms: percentile(frames, 0.95),
+    meanRafHz: 1000 / (frames.reduce((a, b) => a + b, 0) / frames.length),
     heapSamplePeakMiB: peakMiB,
     historySteps: h.past.length,
     distinctTiles,

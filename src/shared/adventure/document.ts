@@ -83,7 +83,7 @@ export interface AdventureDocument {
   rooms: Room[];
   start: Location | null;
 }
-export const PLATFORM_LIMITS = { width: 512, height: 64, tiles: 8192, objects: 300 } as const;
+export const PLATFORM_LIMITS = { width: 2048, height: 64, tiles: 16384, objects: 600 } as const;
 export const WORLD_LIMITS = {
   rooms: 6,
   objects: 300,

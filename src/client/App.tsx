@@ -602,7 +602,7 @@ export function App() {
           退出登录
         </button>
         <a
-          href="https://github.com/cloudray8580/magic_creater_test/releases/tag/m9"
+          href="https://github.com/cloudray8580/magic_creater_test/releases/tag/m10"
           target="_blank"
           rel="noopener noreferrer"
         >

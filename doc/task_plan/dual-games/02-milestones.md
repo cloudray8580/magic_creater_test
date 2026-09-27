@@ -60,3 +60,5 @@ M6切片/边界见16-m6-contract.md，C61–C64；先S6.1框选，不用M3冻结
 M8已完成并冻结；验证见21-m8-verification.md。M9已完成，下一阶段M10。
 
 M9 frozen；契约22-m9-contract.md，验证23-m9-verification.md，M8基线f7a3af5。
+
+M10 active；契约24-m10-contract.md，基线369aa40；M8/M9保持frozen。

@@ -62,7 +62,7 @@ describe('C32 atomic map editing', () => {
       doc.rooms[0].objects.find((o) => o.id === 'gate')!.condition,
     );
     const moved = moveObject(doc, 'bridge', 17, 12);
-    expect(moved.rooms[0].objects.find((o) => o.id === 'bridge')!.route).toEqual({ x: 21, y: 12 });
+    expect(moved.rooms[0].objects.find((o) => o.id === 'bridge')!.route).toEqual({ x: 25, y: 12 });
     expect(() => moveObject(doc, 'bridge', 40, 12)).toThrow();
     expect(doc.rooms[0].objects.find((o) => o.id === 'bridge')!.x).toBe(16);
   });

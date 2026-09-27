@@ -29,12 +29,12 @@ it('selects intersecting footprints in either drag direction and only the chosen
 });
 it('moves a group and its route as one reversible edit without touching other layers', () => {
   const d = adventureTemplate('moving-bridge');
-  const s = area(d, 'objects', 15, 12, 20, 13);
+  const s = area(d, 'objects', 14, 12, 20, 13);
   const result = transformSelection(d, s, 0, -3, false);
   expect(result.document.rooms[0].objects.find((o) => o.id === 'bridge')).toMatchObject({
     x: 16,
     y: 10,
-    route: { x: 20, y: 10 },
+    route: { x: 24, y: 10 },
   });
   expect(result.document.rooms[0].objects.find((o) => o.id === 'rest')?.y).toBe(10);
   expect(result.document.rooms[0].tiles).toEqual(d.rooms[0].tiles);
@@ -112,7 +112,7 @@ it('rejects all of a move/copy for bounds, route endpoints, occupied destination
   const s = area(d, 'objects', 16, 13);
   expect(() => transformSelection(d, s, 21, 0, false)).toThrow(/范围/);
   expect(() => transformSelection(d, s, 0, 0, true)).toThrow(/已有/);
-  expect(() => transformSelection(d, s, 8, 0, false)).toThrow(/已有/);
+  expect(() => transformSelection(d, s, 13, 0, false)).toThrow(/已有/);
   expect(() => transformSelection(d, s, 0.5, 0, false)).toThrow(/整数/);
   const stale = structuredClone(s);
   stale.objectIds = ['missing'];

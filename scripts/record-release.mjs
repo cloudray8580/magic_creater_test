@@ -168,6 +168,73 @@ try {
       await page.waitForTimeout(550);
       await page.keyboard.up('ArrowRight');
     });
+  } else if (version === 'm10') {
+    await cue('六个创作起点：跳跃、乘桥、屋顶寻星，或写一段自己的故事', 6, async () => {
+      await page.locator('.template-group').first().scrollIntoViewIfNeeded();
+      await page.waitForTimeout(2000);
+      await page.locator('.template-group').last().scrollIntoViewIfNeeded();
+    });
+    await cue('地图最长2048格；16384块地形、600个物体，让想象铺得更远', 10, async () => {
+      await page.getByRole('button', { name: '开始创作云间邮差', exact: true }).click();
+      await page.getByLabel('作品名称').fill('写给未来的一段旅程');
+      await page.getByLabel('地图宽度', { exact: true }).fill('2048');
+      await page.getByLabel('地图宽度', { exact: true }).blur();
+      await page.getByRole('button', { name: '适合窗口', exact: true }).click();
+      await page.waitForTimeout(1600);
+      await page.getByRole('button', { name: '定位起点', exact: true }).click();
+      await page.getByRole('button', { name: '保存到服务器' }).click();
+      await page.getByText('已保存到服务器', { exact: true }).waitFor();
+    });
+    await cue('小地图找到远方；一次扩展、一次绘制，都可以撤销重来', 8, async () => {
+      const map = page.getByRole('img', { name: '小地图，点击定位，方向键平移' });
+      await map.scrollIntoViewIfNeeded();
+      const b = await map.boundingBox();
+      await page.mouse.click(b.x + b.width * 0.8, b.y + b.height * 0.7);
+      await page.waitForTimeout(1800);
+      await page.getByRole('button', { name: '定位起点', exact: true }).click();
+      await page.getByRole('button', { name: '我的作品', exact: true }).click();
+    });
+    await cue('会移动的桥：等一等、跳上桥，让机关带你越过溪谷', 14, async () => {
+      await page.getByRole('button', { name: '先玩一玩会移动的桥', exact: true }).click();
+      await page.getByRole('button', { name: '点击进入小世界' }).click();
+      await page.locator('.game-stage').scrollIntoViewIfNeeded();
+      await page.keyboard.down('ArrowRight');
+      await page.waitForFunction(
+        () => Number(document.querySelector('.game-coordinate')?.textContent?.split(',')[0]) >= 14,
+      );
+      await page.keyboard.up('ArrowRight');
+      await page.waitForTimeout(800);
+      await page.keyboard.down('Space');
+      await page.keyboard.down('ArrowRight');
+      await page.waitForTimeout(500);
+      await page.keyboard.up('ArrowRight');
+      await page.waitForTimeout(1000);
+      await page.keyboard.up('Space');
+      await page.waitForTimeout(2500);
+    });
+    await cue('我的秘密小屋：不用带礼物也能聊天，不同选择留下不同结局', 13, async () => {
+      await page.getByRole('button', { name: '我的作品', exact: true }).click();
+      await page.getByRole('button', { name: '先玩一玩我的秘密小屋', exact: true }).click();
+      await page.getByRole('button', { name: '点击进入小世界' }).click();
+      await page.locator('.game-stage').scrollIntoViewIfNeeded();
+      const walk = async (key, position) => {
+        await page.keyboard.down(key);
+        await page.waitForFunction(
+          (p) => document.querySelector('.game-coordinate')?.textContent === p,
+          position,
+        );
+        await page.keyboard.up(key);
+      };
+      await walk('ArrowUp', '2,5');
+      await walk('ArrowRight', '10,5');
+      await page.keyboard.press('e');
+      await page.waitForTimeout(2500);
+      await page.getByRole('button', { name: '一起看星星', exact: true }).click();
+    });
+    await cue('从一个小想法开始。制作、试玩、分享，让同伴发现你的创意', 8, async () => {
+      await page.getByRole('button', { name: '我的作品', exact: true }).click();
+      await page.locator('#my-worlds').scrollIntoViewIfNeeded();
+    });
   } else {
     await cue('从小小的灵感出发，地图可以随着想象向外生长', 6, async () => {
       await page.locator('.template-group').first().scrollIntoViewIfNeeded();

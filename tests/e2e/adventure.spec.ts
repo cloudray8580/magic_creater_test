@@ -83,24 +83,22 @@ test('remaining story templates: lighthouse delivery and both cottage choices wi
   page,
 }) => {
   await samples(page);
-  const garden = async () => {
-    for (const [key, pos] of [
-      ['ArrowDown', '2,8'],
-      ['ArrowRight', '4,8'],
-      ['ArrowUp', '4,7'],
-      ['ArrowRight', '5,7'],
-      ['ArrowUp', '5,6'],
-      ['ArrowRight', '8,6'],
-      ['ArrowDown', '8,7'],
-    ])
-      await step(page, key, pos);
-  };
   await page
-    .getByRole('button', { name: '找回灯塔的光 找到电池，帮助守灯人照亮回家的路。' })
+    .getByRole('button', { name: '找回灯塔的光 点亮两处电源，取出电池，帮助守灯人照亮归途。' })
     .click();
   await page.getByRole('button', { name: '点击进入小世界' }).click();
-  await garden();
+  await step(page, 'ArrowRight', '4,7');
+  await step(page, 'ArrowUp', '4,4');
+  await page.keyboard.press('e');
+  await step(page, 'ArrowDown', '4,9');
+  await step(page, 'ArrowRight', '6,9');
+  await page.keyboard.press('e');
+  await step(page, 'ArrowUp', '6,7');
+  await step(page, 'ArrowRight', '10,7');
+  await step(page, 'ArrowUp', '10,4');
+  await step(page, 'ArrowRight', '12,4');
   await expect(page.locator('.inventory')).toContainText('电池');
+  await step(page, 'ArrowDown', '12,7');
   await step(page, 'ArrowRight', '2,7');
   await step(page, 'ArrowRight', '7,7');
   await step(page, 'ArrowUp', '7,5');
@@ -121,9 +119,13 @@ test('remaining story templates: lighthouse delivery and both cottage choices wi
       await page.getByRole('button', { name: '点击进入小世界' }).click();
       await page.screenshot({ path: 'artifacts/m6-cottage-start.png', fullPage: true });
     } else await page.getByRole('button', { name: '再走一遍，看看不同的风景' }).click();
-    await garden();
-    await step(page, 'ArrowRight', '11,7');
-    await step(page, 'ArrowUp', '11,6');
+    if (choice === '把信放在桌上') {
+      await step(page, 'ArrowDown', '2,8');
+      await step(page, 'ArrowRight', '3,8');
+      await step(page, 'ArrowUp', '3,7');
+    }
+    await step(page, 'ArrowUp', choice === '把信放在桌上' ? '3,5' : '2,5');
+    await step(page, 'ArrowRight', '10,5');
     await page.keyboard.press('e');
     await page.getByRole('button', { name: choice, exact: true }).click();
     await expect(

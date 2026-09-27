@@ -27,7 +27,7 @@ try {
     viewport: '1440x1000',
     commit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     dirty: !!execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim(),
-    mode: 'Vite development; real Chromium DOM/Canvas; 100 edits with target tiles in the scrolled viewport + IndexedDB + animation frame; sampled JS heap (not process RSS)',
+    mode: 'Vite development; real Chromium DOM/Canvas; 100 edits with target tiles in the scrolled viewport + IndexedDB + animation frame; standalone AdventureEditor (not full App); rAF cadence during active scene (not renderer FPS); sampled JS heap (not process RSS)',
     results,
   };
   mkdirSync('artifacts/benchmarks', { recursive: true });

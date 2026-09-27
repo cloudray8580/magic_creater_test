@@ -63,3 +63,5 @@ B82/B83/B84及首次保存目标已由D36采纳，状态decided，M8测试后更
 C91容量、C92视口索引、C93历史/草稿/摘要、C94性能与发布：accepted/implementing，见22-m9-contract.md。
 
 M9 C91–C94已实现/验证/部署并冻结，详见23-m9-verification.md；代码9ee8ff8，206 UT/组件，16条E2E旅程，增量94.77%，67秒视频，正式内容不变与恢复通过。M10待启动。
+
+M10 C101–C104 active，见24-m10-contract.md：最终容量、六样板分化、30分钟稳定性及最终版本交付。

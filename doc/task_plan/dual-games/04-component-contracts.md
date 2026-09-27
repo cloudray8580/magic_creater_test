@@ -33,3 +33,5 @@ M8生效接口和边界：C81–C84见20-m8-contract.md（用户已采纳方案�
 M9共享platformLimits与空间索引供validator/editor/runtime；list summary明确document只有标题/类型等摘要，需详情读取后使用完整数据。
 
 M9 C91–C94已实现/验证/部署并冻结，详见23-m9-verification.md；代码9ee8ff8，206 UT/组件，16条E2E旅程，增量94.77%，67秒视频，正式内容不变与恢复通过。M10待启动。
+
+M10 C101–C104 active，见24-m10-contract.md：最终容量、六样板分化、30分钟稳定性及最终版本交付。

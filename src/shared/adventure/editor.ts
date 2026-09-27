@@ -141,7 +141,15 @@ export function paintWorld(
   tool: PaintTool,
   layer: EditLayer,
 ): AdventureDocument {
-  const next = structuredClone(doc),
+  // Terrain painting replaces only the selected room's tile array; final validation
+  // returns an isolated snapshot. Avoid copying the entire map twice per pointer event.
+  const next =
+      layer === 'terrain' && tool !== 'spawn'
+        ? {
+            ...doc,
+            rooms: doc.rooms.map((r) => (r.id === roomId ? { ...r, tiles: [...r.tiles] } : r)),
+          }
+        : structuredClone(doc),
     room = next.rooms.find((r) => r.id === roomId);
   ensure(room, '房间不存在');
   ensure(cells.length <= 4096, '画笔超出范围');
