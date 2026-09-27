@@ -1,3 +1,4 @@
+import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 import { test, expect } from '@playwright/test';
 import { login } from './helpers.js';
 test('empty account, local recovery, idempotent first save, cross-tab lock and confirmed permanent deletion', async ({
@@ -125,4 +126,54 @@ test('a stale tab cannot save its local creation into the account now logged in 
   );
   expect(preserved).toBe(true);
   await context.close();
+});
+
+test('a committed import whose response is lost can be retried without duplicating the world', async ({
+  browser,
+}) => {
+  const teacher = await browser.newPage();
+  await login(teacher, 'teacher');
+  const name = 'importretry' + Date.now();
+  expect(
+    (
+      await teacher.request.post('/api/members', {
+        headers: { origin: 'http://127.0.0.1:4273' },
+        data: { username: name, displayName: '重试验证', password: 'test-password-123' },
+      })
+    ).status(),
+  ).toBe(201);
+  const context = await browser.newContext(),
+    page = await context.newPage();
+  await login(page, name);
+  let lose = true;
+  await page.route('**/api/projects/import', async (route) => {
+    if (lose) {
+      lose = false;
+      expect((await route.fetch()).status()).toBe(201);
+      await route.abort('failed');
+    } else await route.continue();
+  });
+  const document = adventureTemplate();
+  document.title = '网络重试只创建一次';
+  const input = {
+    name: 'world.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(document)),
+  };
+  await page.getByLabel('导入作品', { exact: true }).setInputFiles(input);
+  await expect(
+    page.getByText('连接暂时不可用。已打开的作品仍可编辑，请导出或等待网络恢复后保存。', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect((await (await page.request.get('/api/projects')).json()).projects).toHaveLength(1);
+  await page.getByLabel('导入作品', { exact: true }).setInputFiles(input);
+  await expect(page.getByLabel('作品名称')).toHaveValue(document.title);
+  expect((await (await page.request.get('/api/projects')).json()).projects).toHaveLength(1);
+  await page.getByRole('button', { name: '我的作品', exact: true }).click();
+  await page.getByLabel('导入作品', { exact: true }).setInputFiles(input);
+  await expect(page.getByLabel('作品名称')).toHaveValue(document.title);
+  expect((await (await page.request.get('/api/projects')).json()).projects).toHaveLength(2);
+  await context.close();
+  await teacher.close();
 });

@@ -1,4 +1,4 @@
-import Fastify, { type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import cookie from '@fastify/cookie';
 import staticFiles from '@fastify/static';
 import rateLimit from '@fastify/rate-limit';
@@ -341,17 +341,21 @@ export async function createApp(options: AppOptions) {
       },
     },
     async (req, reply) => {
-      currentUser(req);
-      const b = bodyObject(req.body, ['bundle']),
-        bundle = parsePortable(b.bundle);
-      const images: { id: string; name: string; data: Buffer }[] = [];
-      for (const a of bundle.assets) images.push({ ...a, data: await normalizeImage(a.data) });
       const u = currentUser(req),
-        id = randomUUID();
-      const project = db.transaction(() => {
+        b = bodyObject(req.body, ['bundle', 'creationKey']),
+        key = creationKey(b.creationKey);
+      const previous = priorCreation(u, key);
+      if (previous) return projectView(previous);
+      const bundle = parsePortable(b.bundle),
+        images: { id: string; name: string; data: Buffer }[] = [];
+      for (const a of bundle.assets) images.push({ ...a, data: await normalizeImage(a.data) });
+      currentUser(req);
+      // Image decoding yields: check the key again inside the final transaction.
+      return createOnce(u, key, reply, () => {
         const ids = new Map(images.map((a) => [a.id, storeImage(db, u.id, a.name, a.data).id]));
         const document = remapAssets(bundle.document, ids);
         requireOwnedAssets(db, u.id, document);
+        const id = randomUUID();
         db.prepare(
           'INSERT INTO projects(id,owner_id,classroom_id,document,revision,updated_at,source) VALUES (?,?,?,?,1,?,?)',
         ).run(
@@ -363,9 +367,7 @@ export async function createApp(options: AppOptions) {
           bundle.source ? JSON.stringify(bundle.source) : null,
         );
         return db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow;
-      })();
-      reply.code(201);
-      return projectView(project);
+      });
     },
   );
   function summaryDocument(alias: 'p' | 'v') {
@@ -391,32 +393,54 @@ export async function createApp(options: AppOptions) {
       ).map(projectView),
     };
   });
-  app.post('/api/projects', async (req, reply) => {
-    const u = currentUser(req),
-      b = bodyObject(req.body, ['document', 'creationKey', 'allowRemix']);
+  function creationKey(value: unknown): string | undefined {
+    if (value === undefined) return undefined;
     if (
-      b.creationKey !== undefined &&
-      (typeof b.creationKey !== 'string' ||
-        !/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(b.creationKey))
+      typeof value !== 'string' ||
+      !/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(value)
     )
       throw new HttpError(400, '创作标识无效');
+    return value;
+  }
+  function priorCreation(u: UserRow, key: string | undefined): ProjectRow | undefined {
+    if (key === undefined) return undefined;
+    const previous = db
+      .prepare('SELECT project_id FROM project_creations WHERE owner_id=? AND creation_key=?')
+      .get(u.id, key) as { project_id: string } | undefined;
+    if (!previous) return undefined;
+    const p = db
+      .prepare('SELECT * FROM projects WHERE id=? AND owner_id=? AND classroom_id=?')
+      .get(previous.project_id, u.id, u.classroom_id) as ProjectRow | undefined;
+    if (!p) throw new HttpError(410, '这份作品已永久删除，请导出当前内容或明确另存为新作品');
+    return p;
+  }
+  function createOnce(
+    u: UserRow,
+    key: string | undefined,
+    reply: FastifyReply,
+    create: () => ProjectRow,
+  ) {
+    return db.transaction(() => {
+      const previous = priorCreation(u, key);
+      if (previous) return projectView(previous);
+      const p = create();
+      if (key !== undefined)
+        db.prepare(
+          'INSERT INTO project_creations(owner_id,creation_key,project_id) VALUES(?,?,?)',
+        ).run(u.id, key, p.id);
+      reply.code(201);
+      return projectView(p);
+    })();
+  }
+  app.post('/api/projects', async (req, reply) => {
+    const u = currentUser(req),
+      b = bodyObject(req.body, ['document', 'creationKey', 'allowRemix']),
+      key = creationKey(b.creationKey);
     if (b.allowRemix !== undefined && typeof b.allowRemix !== 'boolean')
       throw new HttpError(400, '改编设置无效');
-    const document = validateDocument(b.document);
-    requireOwnedAssets(db, u.id, document);
-    return db.transaction(() => {
-      if (b.creationKey !== undefined) {
-        const previous = db
-          .prepare('SELECT project_id FROM project_creations WHERE owner_id=? AND creation_key=?')
-          .get(u.id, b.creationKey) as { project_id: string } | undefined;
-        if (previous) {
-          const p = db
-            .prepare('SELECT * FROM projects WHERE id=? AND owner_id=? AND classroom_id=?')
-            .get(previous.project_id, u.id, u.classroom_id) as ProjectRow | undefined;
-          if (!p) throw new HttpError(410, '这份作品已永久删除，请导出当前内容或明确另存为新作品');
-          return projectView(p);
-        }
-      }
+    return createOnce(u, key, reply, () => {
+      const document = validateDocument(b.document);
+      requireOwnedAssets(db, u.id, document);
       const id = randomUUID();
       db.prepare(
         'INSERT INTO projects(id,owner_id,classroom_id,document,revision,updated_at,allow_remix) VALUES (?,?,?,?,1,?,?)',
@@ -428,13 +452,8 @@ export async function createApp(options: AppOptions) {
         Date.now(),
         Number(b.allowRemix ?? false),
       );
-      if (b.creationKey !== undefined)
-        db.prepare(
-          'INSERT INTO project_creations(owner_id,creation_key,project_id) VALUES(?,?,?)',
-        ).run(u.id, b.creationKey, id);
-      reply.code(201);
-      return projectView(db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow);
-    })();
+      return db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow;
+    });
   });
   app.delete('/api/projects/:id', async (req) =>
     db.transaction(() => {
@@ -475,20 +494,20 @@ export async function createApp(options: AppOptions) {
   });
 
   app.post('/api/projects/:id/copy', async (req, reply) => {
-    const p = ownedProject(req),
-      b = bodyObject(req.body, ['document']);
-    const document = validateDocument(
-      b.document === undefined ? JSON.parse(p.document) : b.document,
-    );
-    requireOwnedAssets(db, p.owner_id, document);
-    document.title = (document.title + ' 副本').slice(0, 60);
-    validateDocument(document);
-    const id = randomUUID();
-    db.prepare(
-      'INSERT INTO projects(id,owner_id,classroom_id,document,updated_at,source) VALUES (?,?,?,?,?,?)',
-    ).run(id, p.owner_id, p.classroom_id, JSON.stringify(document), Date.now(), p.source);
-    reply.code(201);
-    return projectView(db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow);
+    const u = currentUser(req),
+      b = bodyObject(req.body, ['document', 'creationKey']);
+    return createOnce(u, creationKey(b.creationKey), reply, () => {
+      const p = ownedProject(req),
+        document = validateDocument(b.document === undefined ? JSON.parse(p.document) : b.document);
+      requireOwnedAssets(db, p.owner_id, document);
+      document.title = (document.title + ' 副本').slice(0, 60);
+      validateDocument(document);
+      const id = randomUUID();
+      db.prepare(
+        'INSERT INTO projects(id,owner_id,classroom_id,document,updated_at,source) VALUES (?,?,?,?,?,?)',
+      ).run(id, p.owner_id, p.classroom_id, JSON.stringify(document), Date.now(), p.source);
+      return db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow;
+    });
   });
 
   interface VersionRow {
@@ -560,12 +579,12 @@ export async function createApp(options: AppOptions) {
   });
   app.post('/api/versions/:id/remix', async (req, reply) => {
     const u = currentUser(req),
-      v = versionRow(param(req), u, true);
-    bodyObject(req.body, []);
-    if (!v.allow_remix) throw new HttpError(403, '创作者没有允许改编这个版本');
-    const original = validateDocument(JSON.parse(v.document)),
-      id = randomUUID();
-    const project = db.transaction(() => {
+      b = bodyObject(req.body, ['creationKey']);
+    return createOnce(u, creationKey(b.creationKey), reply, () => {
+      const v = versionRow(param(req), u, true);
+      if (!v.allow_remix) throw new HttpError(403, '创作者没有允许改编这个版本');
+      const original = validateDocument(JSON.parse(v.document)),
+        id = randomUUID();
       const ids = new Map<string, string>();
       for (const assetId of documentAssets(original)) {
         const asset = db
@@ -587,9 +606,7 @@ export async function createApp(options: AppOptions) {
         'INSERT INTO projects(id,owner_id,classroom_id,document,updated_at,source) VALUES (?,?,?,?,?,?)',
       ).run(id, u.id, u.classroom_id, JSON.stringify(document), Date.now(), JSON.stringify(source));
       return db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow;
-    })();
-    reply.code(201);
-    return projectView(project);
+    });
   });
   app.get('/api/projects/:id/versions', async (req) => {
     const p = ownedProject(req);

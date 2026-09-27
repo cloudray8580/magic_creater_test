@@ -68,6 +68,8 @@ function download(doc: unknown, filename = 'creative-world.json') {
 export function App() {
   const [deleteTarget, setDeleteTarget] = useState<ProjectSummary>();
   const actionPending = useRef(false);
+  const pendingCreations = useRef(new Map<string, string>());
+  const currentAccount = useRef<string | undefined>(undefined);
   const currentLocation = useRef<Location | null>(null);
   const [feedbackLocation, setFeedbackLocation] = useState<Location>();
   const [locatedFeedback, setLocatedFeedback] = useState<{
@@ -112,23 +114,51 @@ export function App() {
     const version = await api<Version>('/versions/' + feedback.versionId);
     setLocatedFeedback({ document: version.document, feedback });
   }
+  currentAccount.current = user?.id;
+  useEffect(() => {
+    pendingCreations.current.clear();
+  }, [user?.id]);
+  async function createAndOpen(url: string, body: Record<string, unknown>, sourceId = '') {
+    const owner = user!.id;
+    // Only failed/unconfirmed operations retain a small nonce; never retain file bytes.
+    const digest = await crypto.subtle.digest(
+      'SHA-256',
+      new TextEncoder().encode(JSON.stringify(body)),
+    );
+    const identity =
+      owner +
+      ':' +
+      url +
+      ':' +
+      sourceId +
+      ':' +
+      Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+    if (currentAccount.current !== owner) throw new Error('账号已切换，请在当前账号重新操作');
+    const key = pendingCreations.current.get(identity) ?? crypto.randomUUID();
+    pendingCreations.current.set(identity, key);
+    try {
+      const created = await api<Project>(url, 'POST', { ...body, creationKey: key });
+      if (currentAccount.current !== owner) throw new Error('账号已切换，请在当前账号查看作品列表');
+      await openProject(created);
+      pendingCreations.current.delete(identity);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 410) {
+        pendingCreations.current.delete(identity);
+        throw new Error('上次创建的作品已删除。再次点击创建会生成一份新作品。');
+      }
+      throw e;
+    }
+  }
   async function copyProject(p: ProjectSummary, document?: GameDocument) {
     if (p.local || p.deleted) {
       const doc = validateDocument({
         ...(document ?? p.document),
         title: ((document ?? p.document).title + ' 副本').slice(0, 60),
       });
-      await openProject(
-        await api<Project>('/projects', 'POST', {
-          document: doc,
-          creationKey: crypto.randomUUID(),
-        }),
-      );
+      await createAndOpen('/projects', { document: doc }, p.id);
       return;
     }
-    await openProject(
-      await api<Project>('/projects/' + p.id + '/copy', 'POST', document ? { document } : {}),
-    );
+    await createAndOpen('/projects/' + p.id + '/copy', document ? { document } : {});
   }
   async function refreshMine(owner = user?.id) {
     const remote = (await api<{ projects: ProjectSummary[] }>('/projects?summary=1')).projects;
@@ -726,9 +756,7 @@ export function App() {
                             if (f.size > BUNDLE_BYTES) throw new Error('作品包不能超过8MiB');
                             const input = JSON.parse(await f.text());
                             parsePortable(input);
-                            await openProject(
-                              await api<Project>('/projects/import', 'POST', { bundle: input }),
-                            );
+                            await createAndOpen('/projects/import', { bundle: input });
                           });
                       }}
                     />
@@ -1133,11 +1161,7 @@ export function App() {
               {playing.status === 'approved' && playing.allowRemix && (
                 <button
                   onClick={() =>
-                    void action(async () =>
-                      openProject(
-                        await api<Project>('/versions/' + playing.id + '/remix', 'POST', {}),
-                      ),
-                    )
+                    void action(async () => createAndOpen('/versions/' + playing.id + '/remix', {}))
                   }
                 >
                   改编这个作品

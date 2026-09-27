@@ -7,7 +7,7 @@ import {
   TEMPLATE_IDS,
   TEMPLATE_INFO,
 } from '../../src/shared/adventure/templates.js';
-import type { Project } from '../../src/client/api.js';
+import { ApiError, type Project } from '../../src/client/api.js';
 const mock = vi.hoisted(() => ({
   api: vi.fn(),
   read: vi.fn(),
@@ -208,7 +208,10 @@ it('imports raw and portable files through the atomic import endpoint', async ()
     await new Promise((r) => setTimeout(r, 30));
   });
   await expect.poll(() => mock.api.mock.calls.some((c) => c[0] === '/projects/import')).toBe(true);
-  expect(mock.api).toHaveBeenCalledWith('/projects/import', 'POST', { bundle: doc });
+  expect(mock.api).toHaveBeenCalledWith('/projects/import', 'POST', {
+    bundle: doc,
+    creationKey: expect.any(String),
+  });
   await expect.poll(() => host.textContent).toContain('从文件来的世界');
 });
 
@@ -417,3 +420,48 @@ it('blocks submitting a retry when its server remix permission differs from the 
   expect(host.textContent).toContain('改编设置与当前选择不同');
   expect(mock.api.mock.calls.some((c) => c[0].endsWith('/submit'))).toBe(false);
 });
+
+it.each([0, 410])(
+  'handles import retry status %s with an explicit subsequent creation and clears a confirmed nonce',
+  async (status) => {
+    await start();
+    await click('我的作品');
+    const doc = adventureTemplate();
+    doc.title = '重试导入';
+    const original = mock.api.getMockImplementation()!;
+    let tries = 0;
+    mock.api.mockImplementation(async (url, method, body) => {
+      if (url === '/projects/import') {
+        if (++tries === 1) throw new ApiError(status, '响应丢失');
+        return { ...project, id: 'import-retry', document: doc };
+      }
+      return original(url, method, body);
+    });
+    const upload = async () => {
+      const transfer = new DataTransfer();
+      transfer.items.add(
+        new File([JSON.stringify(doc)], 'world.json', { type: 'application/json' }),
+      );
+      const input = host.querySelector('input[type=file]') as HTMLInputElement;
+      input.files = transfer.files;
+      await act(async () => {
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+        await new Promise((r) => setTimeout(r, 50));
+      });
+    };
+    await upload();
+    await expect
+      .poll(() => host.textContent)
+      .toContain(status === 410 ? '再次点击创建' : '响应丢失');
+    const first = mock.api.mock.calls.find((c) => c[0] === '/projects/import')![2].creationKey;
+    await upload();
+    await expect.poll(() => host.textContent).toContain('重试导入');
+    const attempts = () => mock.api.mock.calls.filter((c) => c[0] === '/projects/import');
+    if (status === 410) expect(attempts()[1][2].creationKey).not.toBe(first);
+    else expect(attempts()[1][2].creationKey).toBe(first);
+    await click('我的作品');
+    await upload();
+    await expect.poll(() => attempts().length).toBe(3);
+    expect(attempts()[2][2].creationKey).not.toBe(first);
+  },
+);
