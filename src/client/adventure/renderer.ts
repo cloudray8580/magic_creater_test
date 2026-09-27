@@ -309,7 +309,8 @@ export function mountAdventure(
     scene: World,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     render: { antialias: true },
-    input: { keyboard: false },
+    // React owns all input. Phaser 3.90 leaves wheel listeners on pooled canvases.
+    input: { keyboard: false, mouse: false, touch: false, gamepad: false },
     fps: { target: 60, forceSetTimeOut: false },
   });
   return {

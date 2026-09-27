@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mountAdventure, type GameControls } from '../../src/client/adventure/renderer.js';
 import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 import type { GameFrame } from '../../src/client/adventure/view.js';
@@ -319,3 +319,24 @@ it('shows the hero in the first rendered frame after a long-distance respawn and
     controls.pause(false);
   }
 }, 20000);
+
+it('repeated scenes do not register unused native wheel listeners on pooled canvases', async () => {
+  const listen = vi.spyOn(HTMLCanvasElement.prototype, 'addEventListener');
+  try {
+    for (let i = 0; i < 3; i++) {
+      const view = start(i % 2 ? 'forest-letter' : 'cloud-post');
+      await expect.poll(() => view.frame()?.room.id).toBe(i % 2 ? 'garden' : 'trail');
+      controls!.pause(false);
+      controls!.key('ArrowRight', true);
+      await delay(100);
+      controls!.key('ArrowRight', false);
+      controls!.destroy();
+      controls = undefined;
+      await expect.poll(() => host.querySelectorAll('canvas').length).toBe(0);
+      host.remove();
+    }
+    expect(listen.mock.calls.filter(([type]) => type === 'wheel')).toHaveLength(0);
+  } finally {
+    listen.mockRestore();
+  }
+});

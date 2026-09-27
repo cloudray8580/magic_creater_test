@@ -191,7 +191,9 @@ try {
       const b = await map.boundingBox();
       await page.mouse.click(b.x + b.width * 0.8, b.y + b.height * 0.7);
       await page.waitForTimeout(1800);
+      for (let i = 0; i < 15; i++) await page.getByRole('button', { name: '放大地图' }).click();
       await page.getByRole('button', { name: '定位起点', exact: true }).click();
+      await page.waitForTimeout(1500);
       await page.getByRole('button', { name: '我的作品', exact: true }).click();
     });
     await cue('会移动的桥：等一等、跳上桥，让机关带你越过溪谷', 14, async () => {
@@ -203,13 +205,17 @@ try {
         () => Number(document.querySelector('.game-coordinate')?.textContent?.split(',')[0]) >= 14,
       );
       await page.keyboard.up('ArrowRight');
-      await page.waitForTimeout(800);
       await page.keyboard.down('Space');
       await page.keyboard.down('ArrowRight');
-      await page.waitForTimeout(500);
+      await page.waitForFunction(
+        () => Number(document.querySelector('.game-coordinate')?.textContent?.split(',')[0]) >= 20,
+      );
       await page.keyboard.up('ArrowRight');
       await page.waitForTimeout(1000);
       await page.keyboard.up('Space');
+      await page.waitForFunction(() =>
+        document.querySelector('.game-coordinate')?.textContent?.endsWith(',12'),
+      );
       await page.waitForTimeout(2500);
     });
     await cue('我的秘密小屋：不用带礼物也能聊天，不同选择留下不同结局', 13, async () => {

@@ -148,14 +148,22 @@ try {
     cycle++;
   }
   report.elapsedMs = Date.now() - started;
-  const warm = report.samples.slice(6),
-    first = warm[0],
-    last = warm.at(-1);
-  report.retainedHeapGrowthMiB = last.retainedHeapMiB - first.retainedHeapMiB;
+  report.byGame = Object.fromEntries(
+    ['platformer', 'story'].map((game) => {
+      const samples = report.samples.slice(6).filter((s) => s.game === game),
+        first = samples[0],
+        last = samples.at(-1);
+      const retainedHeapGrowthMiB = last.retainedHeapMiB - first.retainedHeapMiB;
+      if (retainedHeapGrowthMiB > 40) throw Error(game + ': retained heap growth exceeds 40MiB');
+      if (last.documents > first.documents + 3)
+        throw Error(game + ': detached documents accumulated');
+      return [game, { cycles: samples.length, retainedHeapGrowthMiB, first, last }];
+    }),
+  );
+  report.retainedHeapGrowthMiB = Math.max(
+    ...Object.values(report.byGame).map((r) => r.retainedHeapGrowthMiB),
+  );
   report.status = 'passed';
-  if (report.retainedHeapGrowthMiB > 40)
-    throw Error('Retained heap growth exceeds 40MiB; inspect lifecycle');
-  if (last.documents > first.documents + 3) throw Error('Detached documents accumulated');
   persist();
   console.log(
     JSON.stringify({

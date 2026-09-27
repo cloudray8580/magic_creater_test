@@ -144,6 +144,14 @@ export async function benchmark(kind: 'empty' | 'sparse' | 'dense') {
   });
   for (let i = 0; !ready && i < 300; i++) await tick();
   if (!ready) throw Error('game not ready');
+  const output = play.querySelector('canvas')!.getContext('2d')!;
+  const originalClear = output.clearRect;
+  const renders: number[] = [];
+  output.clearRect = function (...args) {
+    if (args[0] === 0 && args[1] === 0 && args[2] === 960 && args[3] === 576)
+      renders.push(performance.now());
+    return originalClear.apply(this, args);
+  };
   game.pause(false);
   game.key('ArrowRight', true);
   const frames: number[] = [];
@@ -155,6 +163,12 @@ export async function benchmark(kind: 'empty' | 'sparse' | 'dense') {
     previous = current;
     peakMiB = Math.max(peakMiB, memory());
   }
+  output.clearRect = originalClear;
+  const renderTimes = renders
+    .slice(30)
+    .map((time, i, all) => (i ? time - all[i - 1] : 0))
+    .slice(1);
+  if (renderTimes.length < 100) throw Error('Insufficient actual Canvas renderer frames');
   game.destroy();
   play.remove();
   await tick();
@@ -177,6 +191,9 @@ export async function benchmark(kind: 'empty' | 'sparse' | 'dense') {
     editP95Ms: percentile(edits, 0.95),
     rafIntervalP50Ms: percentile(frames, 0.5),
     rafIntervalP95Ms: percentile(frames, 0.95),
+    rendererFrameCount: renderTimes.length,
+    rendererFrameP95Ms: percentile(renderTimes, 0.95),
+    rendererMeanFps: 1000 / (renderTimes.reduce((a, b) => a + b, 0) / renderTimes.length),
     meanRafHz: 1000 / (frames.reduce((a, b) => a + b, 0) / frames.length),
     heapSamplePeakMiB: peakMiB,
     historySteps: h.past.length,
