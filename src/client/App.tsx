@@ -3,22 +3,26 @@ import { api, ApiError, type User, type Project, type Version, type Feedback } f
 import { readDraft, writeDraft, holdDraft } from './drafts.js';
 import {
   template,
-  validateDocument,
   createHistory,
   changeHistory,
   undoHistory,
   redoHistory,
   editTitle,
   editCell,
-  LIMITS,
-  type GameDocument,
   type History,
   type Tool,
 } from '../shared/game.js';
-import { Play, labels, symbols } from './Play.js';
+import { labels, symbols } from './Play.js';
+import { DocumentPlay } from './DocumentPlay.js';
+import { AdventureEditor } from './AdventureEditor.js';
+import {
+  validateCreative as validateDocument,
+  DOCUMENT_BYTES,
+  type CreativeDocument as GameDocument,
+} from '../shared/creative.js';
 import { AdventurePlay } from './AdventurePlay.js';
 import { adventureTemplate, TEMPLATE_IDS, TEMPLATE_INFO } from '../shared/adventure/templates.js';
-import type { AdventureDocument } from '../shared/adventure/document.js';
+import type { AdventureDocument, Location } from '../shared/adventure/document.js';
 type View = 'samples' | 'mine' | 'editor' | 'shelf' | 'play' | 'manage';
 const statusLabels: Record<string, string> = {
   pending: '等待老师确认',
@@ -30,18 +34,18 @@ function fields(event: FormEvent<HTMLFormElement>) {
   event.preventDefault();
   return Object.fromEntries(new FormData(event.currentTarget)) as Record<string, string>;
 }
-function download(doc: GameDocument) {
-  const url = URL.createObjectURL(
-    new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' }),
-  );
+function download(doc: unknown, filename = 'creative-world.json') {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(doc)], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'creative-world.json';
+  a.download = filename;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function App() {
   const [sample, setSample] = useState<AdventureDocument>(() => adventureTemplate());
+  const [previewFrom, setPreviewFrom] = useState<Location>();
+  const [invalidDraft, setInvalidDraft] = useState<{ raw: unknown }>();
   const editorLock = useRef<{ key: string; release: () => void } | null>(null);
   function releaseEditor() {
     editorLock.current?.release();
@@ -57,7 +61,7 @@ export function App() {
     [error, setError] = useState('');
   const [projects, setProjects] = useState<Project[]>([]),
     [project, setProject] = useState<Project>(),
-    [history, setHistory] = useState<History>(),
+    [history, setHistory] = useState<History<GameDocument>>(),
     [tool, setTool] = useState<Tool>('wall'),
     [dirty, setDirty] = useState(false),
     [draftState, setDraftState] = useState(''),
@@ -105,6 +109,8 @@ export function App() {
     setPreview(false);
     setDirty(false);
     setDraftState('');
+    setInvalidDraft(undefined);
+    setPreviewFrom(undefined);
     setView('mine');
   }
   async function action(task: () => Promise<void>) {
@@ -153,18 +159,39 @@ export function App() {
     } catch {
       storageFailed = true;
     }
-    const restored = local?.dirty ? local : undefined;
+    let restored;
+    setInvalidDraft(undefined);
+    let corrupt = false;
+    if (local !== undefined) {
+      try {
+        validateDocument(local.document);
+        if (
+          !Number.isSafeInteger(local.revision) ||
+          local.revision < 1 ||
+          typeof local.dirty !== 'boolean'
+        )
+          throw new Error('草稿记录无效');
+        restored = local.dirty ? local : undefined;
+      } catch {
+        setInvalidDraft({ raw: local });
+        corrupt = true;
+        setError('本地草稿格式无效，已保留原数据。请先导出未恢复草稿，再重新加载服务器版本。');
+      }
+    }
+    validateDocument(p.document);
     setProject(restored ? { ...p, revision: restored.revision } : p);
     setHistory(createHistory(restored ? restored.document : p.document));
     setDirty(Boolean(restored));
     setPreview(false);
     setView('editor');
     setDraftState(
-      storageFailed
-        ? '本地存储不可用，请及时导出'
-        : restored
-          ? '已恢复未保存的本地草稿'
-          : '与服务器一致',
+      corrupt
+        ? '未恢复的草稿已保留，请先导出'
+        : storageFailed
+          ? '本地存储不可用，请及时导出'
+          : restored
+            ? '已恢复未保存的本地草稿'
+            : '与服务器一致',
     );
     await refreshHistory(p.id);
   }
@@ -188,9 +215,15 @@ export function App() {
     releaseEditor();
     setView(next);
   }
-  function persist(next: History) {
+  function persist(next: History<GameDocument>) {
+    if (busy) return;
+    if (history && JSON.stringify(next.present) === JSON.stringify(history.present)) return;
     setHistory(next);
     setDirty(true);
+    if (invalidDraft !== undefined) {
+      setDraftState('损坏草稿仍保留，本次编辑请导出后再加载服务器');
+      return;
+    }
     setDraftState('正在保存本地草稿…');
     void writeDraft(user!.id, project!.id, {
       document: next.present,
@@ -201,6 +234,7 @@ export function App() {
       .catch(() => setDraftState('本地保存失败，请立即导出文件'));
   }
   async function save(): Promise<Project> {
+    if (invalidDraft !== undefined) throw new Error('请先导出未恢复草稿，再重新加载服务器版本');
     const p = await api<Project>('/projects/' + project!.id, 'PUT', {
       document: validateDocument(history!.present),
       revision: project!.revision,
@@ -224,6 +258,7 @@ export function App() {
     await openProject(p);
     setMessage('已加载服务器版本');
   }
+  const legacy = history?.present.schemaVersion === 1 ? history.present : undefined;
   if (loading)
     return (
       <main className="login">
@@ -377,7 +412,18 @@ export function App() {
                 <h1>今天，创造一点什么？</h1>
                 <p>从一个小花园开始。放置、尝试、修改，再邀请同伴来探索。</p>
                 <div className="row">
-                  <button className="primary" onClick={() => void action(() => create(template()))}>
+                  {TEMPLATE_IDS.filter((id) => TEMPLATE_INFO[id].kind === 'platformer').map(
+                    (id) => (
+                      <button
+                        key={id}
+                        className="primary"
+                        onClick={() => void action(() => create(adventureTemplate(id)))}
+                      >
+                        创作{TEMPLATE_INFO[id].title}
+                      </button>
+                    ),
+                  )}
+                  <button onClick={() => void action(() => create(template()))}>
                     从月光花园开始
                   </button>
                   <button onClick={() => void action(() => create(template('corner')))}>
@@ -394,7 +440,7 @@ export function App() {
                         e.target.value = '';
                         if (f)
                           void action(async () => {
-                            if (f.size > LIMITS.bodyBytes) throw new Error('文件不能超过128KiB');
+                            if (f.size > DOCUMENT_BYTES) throw new Error('作品JSON不能超过256KiB');
                             await create(validateDocument(JSON.parse(await f.text())));
                           });
                       }}
@@ -449,14 +495,26 @@ export function App() {
             <>
               <div className="section-heading">
                 <div>
-                  <span className="eyebrow">创作中的小世界</span>
+                  <span className="eyebrow">
+                    创作中的小世界 ·{' '}
+                    {history.present.schemaVersion === 1
+                      ? '经典花园'
+                      : history.present.gameType === 'platformer'
+                        ? '横版跳跃'
+                        : '探索故事'}
+                  </span>
                   <h1>{history.present.title || '未命名作品'}</h1>
                 </div>
                 <div className="row">
                   <button
                     onClick={() => {
+                      if (preview) {
+                        setPreview(false);
+                        return;
+                      }
                       try {
                         validateDocument(history.present, true);
+                        setPreviewFrom(undefined);
                         setPreview(!preview);
                         setError('');
                       } catch (e) {
@@ -493,8 +551,34 @@ export function App() {
                   </button>
                 </div>
               </div>
-              {preview ? (
-                <Play key={project.id} document={history.present} />
+              {history.present.schemaVersion === 2 ? (
+                <>
+                  <div hidden={preview} inert={busy} aria-busy={busy}>
+                    <AdventureEditor
+                      document={history.present}
+                      onChange={(doc) => persist(changeHistory(history, doc))}
+                      onUndo={() => persist(undoHistory(history))}
+                      onRedo={() => persist(redoHistory(history))}
+                      canUndo={Boolean(history.past.length)}
+                      canRedo={Boolean(history.future.length)}
+                      onPreviewFrom={(from) => {
+                        try {
+                          validateDocument({ ...history.present, start: from }, true);
+                          setPreviewFrom(from);
+                          setPreview(true);
+                          setError('');
+                        } catch (e) {
+                          setError((e as Error).message);
+                        }
+                      }}
+                    />
+                  </div>
+                  {preview && (
+                    <DocumentPlay key={project.id} document={history.present} from={previewFrom} />
+                  )}
+                </>
+              ) : preview ? (
+                <DocumentPlay key={project.id} document={history.present} />
               ) : (
                 <div className="editor">
                   <aside className="panel">
@@ -516,15 +600,15 @@ export function App() {
                     <div
                       className="grid"
                       style={{
-                        gridTemplateColumns: 'repeat(' + history.present.level.width + ',1fr)',
+                        gridTemplateColumns: 'repeat(' + legacy!.level.width + ',1fr)',
                       }}
                     >
                       {Array.from(
-                        { length: history.present.level.width * history.present.level.height },
+                        { length: legacy!.level.width * legacy!.level.height },
                         (_, i) => {
-                          const x = i % history.present.level.width,
-                            y = Math.floor(i / history.present.level.width),
-                            o = history.present.level.objects.find((o) => o.x === x && o.y === y);
+                          const x = i % legacy!.level.width,
+                            y = Math.floor(i / legacy!.level.width),
+                            o = legacy!.level.objects.find((o) => o.x === x && o.y === y);
                           return (
                             <button
                               type="button"
@@ -533,9 +617,7 @@ export function App() {
                               className={'cell ' + (o?.type ?? '')}
                               key={i}
                               onClick={() =>
-                                persist(
-                                  changeHistory(history, editCell(history.present, x, y, tool)),
-                                )
+                                persist(changeHistory(history, editCell(legacy!, x, y, tool)))
                               }
                             >
                               {o ? symbols[o.type] : ''}
@@ -567,9 +649,7 @@ export function App() {
                         value={history.present.title}
                         maxLength={60}
                         onChange={(e) =>
-                          persist(
-                            changeHistory(history, editTitle(history.present, e.target.value)),
-                          )
+                          persist(changeHistory(history, editTitle(legacy!, e.target.value)))
                         }
                       />
                     </label>
@@ -585,6 +665,11 @@ export function App() {
                 </span>
                 <div className="row">
                   <button onClick={() => download(history.present)}>导出当前草稿</button>
+                  {invalidDraft !== undefined && (
+                    <button onClick={() => download(invalidDraft.raw, 'unrecovered-draft.json')}>
+                      导出未恢复草稿
+                    </button>
+                  )}
                   <button
                     onClick={() =>
                       void action(() =>
@@ -685,7 +770,7 @@ export function App() {
                 <button onClick={() => void action(returnToEditor)}>返回编辑作品</button>
               )}
               <p>创作者：{playing.authorName}</p>
-              <Play key={playing.id} document={playing.document} />
+              <DocumentPlay key={playing.id} document={playing.document} />
               {playing.status === 'approved' && (
                 <form
                   className="panel feedback-form"

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { createApp } from '../../src/server/app.js';
 import { bootstrap } from '../../src/server/admin.js';
 import { template } from '../../src/shared/game.js';
+import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 const origin = 'http://127.0.0.1:4173',
   password = 'test-password-123';
 type Context = Awaited<ReturnType<typeof createApp>>;
@@ -392,5 +393,55 @@ describe('C02 concurrent account changes', () => {
     expect(ctx.db.prepare('SELECT active FROM users WHERE id=?').get(target.id)).toEqual({
       active: 0,
     });
+  });
+});
+
+describe('C31 new document API dispatch', () => {
+  it('stores drafts, blocks incomplete submission and freezes reviewed new-game versions', async () => {
+    for (const templateId of ['cloud-post', 'forest-letter'] as const) {
+      const doc = adventureTemplate(templateId);
+      const bad = await request('POST', '/api/projects', alice, {
+        document: { ...doc, rulesVersion: 9 },
+      });
+      expect(bad.statusCode).toBe(400);
+      const draft = structuredClone(doc);
+      draft.start = null;
+      const created = await request('POST', '/api/projects', alice, { document: draft });
+      expect(created.statusCode).toBe(201);
+      const id = created.json().id;
+      expect(
+        (await request('POST', `/api/projects/${id}/submit`, alice, { revision: 1 })).statusCode,
+      ).toBe(400);
+      const saved = await request('PUT', `/api/projects/${id}`, alice, {
+        revision: 1,
+        document: doc,
+      });
+      expect(saved.statusCode).toBe(200);
+      expect(
+        (await request('PUT', `/api/projects/${id}`, bob, { revision: 2, document: doc }))
+          .statusCode,
+      ).toBe(404);
+      const published = await request('POST', `/api/projects/${id}/submit`, alice, { revision: 2 });
+      expect(published.statusCode).toBe(200);
+      const versionId = published.json().id;
+      expect(
+        (await request('PATCH', `/api/versions/${versionId}`, teacher, { status: 'approved' }))
+          .statusCode,
+      ).toBe(200);
+      await request('PUT', `/api/projects/${id}`, alice, {
+        revision: 2,
+        document: { ...doc, title: 'changed' },
+      });
+      expect((await request('GET', `/api/versions/${versionId}`, bob)).json().document).toEqual(
+        doc,
+      );
+      expect(
+        (
+          await request('POST', `/api/versions/${versionId}/feedback`, bob, {
+            text: '喜欢这个机关',
+          })
+        ).statusCode,
+      ).toBe(201);
+    }
   });
 });

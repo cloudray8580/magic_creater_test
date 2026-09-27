@@ -1,4 +1,4 @@
-import type { GameDocument } from '../shared/game.js';
+import type { CreativeDocument as GameDocument } from '../shared/creative.js';
 export interface Draft {
   document: GameDocument;
   revision: number;

@@ -1,9 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
+import { login } from './helpers.js';
 async function samples(page: Page) {
-  await page.goto('/');
-  await page.getByLabel('账号', { exact: true }).fill('teacher');
-  await page.getByLabel('密码', { exact: true }).fill('test-password-123');
-  await page.getByRole('button', { name: '进入工坊' }).click();
+  await login(page, 'teacher');
   await page.getByRole('button', { name: '灵感样板', exact: true }).click();
   await expect(page.locator('canvas')).toHaveCount(1);
   await page.getByRole('button', { name: '点击进入小世界' }).click();

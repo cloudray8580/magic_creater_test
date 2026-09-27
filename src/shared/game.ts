@@ -172,22 +172,22 @@ export function editCell(doc: GameDocument, x: number, y: number, tool: Tool): G
 export function editTitle(doc: GameDocument, title: string): GameDocument {
   return { ...cloneDocument(doc), title };
 }
-export interface History {
-  past: GameDocument[];
-  present: GameDocument;
-  future: GameDocument[];
+export interface History<T = GameDocument> {
+  past: T[];
+  present: T;
+  future: T[];
 }
-export function createHistory(doc: GameDocument): History {
-  return { past: [], present: cloneDocument(doc), future: [] };
+export function createHistory<T>(doc: T): History<T> {
+  return { past: [], present: structuredClone(doc), future: [] };
 }
-export function changeHistory(history: History, doc: GameDocument): History {
+export function changeHistory<T>(history: History<T>, doc: T): History<T> {
   return {
     past: [...history.past, history.present].slice(-LIMITS.history),
-    present: cloneDocument(doc),
+    present: structuredClone(doc),
     future: [],
   };
 }
-export function undoHistory(history: History): History {
+export function undoHistory<T>(history: History<T>): History<T> {
   if (!history.past.length) return history;
   return {
     past: history.past.slice(0, -1),
@@ -195,7 +195,7 @@ export function undoHistory(history: History): History {
     future: [history.present, ...history.future],
   };
 }
-export function redoHistory(history: History): History {
+export function redoHistory<T>(history: History<T>): History<T> {
   if (!history.future.length) return history;
   return {
     past: [...history.past, history.present],

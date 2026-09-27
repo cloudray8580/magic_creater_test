@@ -1,11 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-async function login(p: Page, name: string) {
-  await p.goto('/');
-  await p.getByLabel('账号', { exact: true }).fill(name);
-  await p.getByLabel('密码', { exact: true }).fill('test-password-123');
-  await p.getByRole('button', { name: '进入工坊' }).click();
-  await expect(p.getByRole('button', { name: '退出登录' })).toBeVisible();
-}
+import { login } from './helpers.js';
 test('teacher, two creators, review, play, feedback and withdrawal', async ({ browser }) => {
   const t = await browser.newPage(),
     a = await browser.newPage(),
@@ -50,7 +44,11 @@ test('teacher, two creators, review, play, feedback and withdrawal', async ({ br
   await a.getByRole('button', { name: '提交给老师' }).click();
   await t.getByRole('button', { name: '刷新管理页' }).click();
   await t.getByRole('button', { name: '确认展示' }).click();
-  await t.getByRole('button', { name: '隐藏反馈' }).click();
+  await t
+    .locator('article.review')
+    .filter({ hasText: '我喜欢这条温柔的小路' })
+    .getByRole('button', { name: '隐藏反馈' })
+    .click();
   await a.getByRole('button', { name: '刷新版本与反馈' }).click();
   await expect(a.getByText('我喜欢这条温柔的小路')).toHaveCount(0);
   await a.evaluate(() =>

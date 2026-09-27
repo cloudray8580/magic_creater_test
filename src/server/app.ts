@@ -6,7 +6,8 @@ import { randomUUID } from 'node:crypto';
 import { openDatabase } from './db.js';
 import { hashPassword, verifyPassword, newSessionToken, tokenHash } from './auth.js';
 import { HttpError, bodyObject, text, username, password, revision } from './input.js';
-import { LIMITS, validateDocument, ValidationError } from '../shared/game.js';
+import { ValidationError } from '../shared/game.js';
+import { DOCUMENT_BYTES, validateCreative as validateDocument } from '../shared/creative.js';
 
 export interface AppOptions {
   databasePath: string;
@@ -57,7 +58,7 @@ function param(req: FastifyRequest, key = 'id') {
 export async function createApp(options: AppOptions) {
   const db = openDatabase(options.databasePath);
   const app = Fastify({
-    bodyLimit: LIMITS.bodyBytes,
+    bodyLimit: DOCUMENT_BYTES + 1024,
     logger: options.logger
       ? {
           redact: [
