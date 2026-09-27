@@ -24,6 +24,7 @@ import { FeedbackMap } from './FeedbackMap.js';
 import { exportPortable } from './assets.js';
 import { BUNDLE_BYTES, parsePortable } from '../shared/portable.js';
 import { AdventurePlay } from './AdventurePlay.js';
+import { TemplateGallery } from './TemplateGallery.js';
 import { adventureTemplate, TEMPLATE_IDS, TEMPLATE_INFO } from '../shared/adventure/templates.js';
 import type { AdventureDocument, Location } from '../shared/adventure/document.js';
 type View = 'samples' | 'mine' | 'editor' | 'shelf' | 'play' | 'manage';
@@ -452,17 +453,24 @@ export function App() {
               <section className="hero">
                 <span className="eyebrow">每个想法都有生长的空间</span>
                 <h1>今天，创造一点什么？</h1>
-                <p>从一个小花园开始。放置、尝试、修改，再邀请同伴来探索。</p>
+                <p>两种玩法，六个起点。先选喜欢的冒险，再把它改成你的世界。</p>
+                <p>同一种玩法的模板共享全部创作工具，选择模板不会限制后续设计。</p>
+                <a className="my-worlds-link" href="#my-worlds">
+                  回到我的小世界 · {projects.length} 个作品 ↓
+                </a>
+              </section>
+              <TemplateGallery
+                onCreate={(id) => void action(() => create(adventureTemplate(id)))}
+                onTry={(id) =>
+                  void action(async () => {
+                    setSample(adventureTemplate(id));
+                    await navigate('samples');
+                  })
+                }
+              />
+              <details className="legacy-templates">
+                <summary>经典格子玩法与作品导入</summary>
                 <div className="row">
-                  {TEMPLATE_IDS.map((id) => (
-                    <button
-                      key={id}
-                      className="primary"
-                      onClick={() => void action(() => create(adventureTemplate(id)))}
-                    >
-                      创作{TEMPLATE_INFO[id].title}
-                    </button>
-                  ))}
                   <button onClick={() => void action(() => create(template()))}>
                     从月光花园开始
                   </button>
@@ -491,8 +499,8 @@ export function App() {
                     />
                   </label>
                 </div>
-              </section>
-              <div className="section-heading">
+              </details>
+              <div className="section-heading" id="my-worlds">
                 <h2>我的小世界</h2>
                 <span>{projects.length} 个作品</span>
               </div>

@@ -45,3 +45,6 @@
 M6切片/边界见16-m6-contract.md，C61–C64；先S6.1框选，不用M3冻结掩盖上层需求缺口。
 
 全部M2–M6已冻结；M6最终171 UT、11 E2E、整轮增量94.88%，11700部署与实际恢复通过，见17-m6-verification.md。现场真实学生与跨设备验证明确未完成，不计作开发交付门槛已验证的效果。
+
+## M7 首页反馈迭代
+首页C71 frozen；分支feature/m7-home-template-gallery，契约见18-m7-contract.md，验证见19-m7-verification.md。C72整体删除仍待用户决定，未实现。

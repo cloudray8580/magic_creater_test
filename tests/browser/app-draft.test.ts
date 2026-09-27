@@ -2,7 +2,11 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { App } from '../../src/client/App.js';
-import { adventureTemplate } from '../../src/shared/adventure/templates.js';
+import {
+  adventureTemplate,
+  TEMPLATE_IDS,
+  TEMPLATE_INFO,
+} from '../../src/shared/adventure/templates.js';
 import type { Project } from '../../src/client/api.js';
 const mock = vi.hoisted(() => ({ api: vi.fn(), read: vi.fn(), write: vi.fn(), hold: vi.fn() }));
 vi.mock('../../src/client/api.js', async (importOriginal) => ({
@@ -239,4 +243,27 @@ it('keeps saving and image upload from racing while allowing the upload to finis
       }),
     }),
   );
+});
+
+it('selects all six starting documents and previews without creating a project', async () => {
+  await start();
+  await click('我的作品');
+  expect(host.querySelectorAll('.template-group')).toHaveLength(2);
+  expect(host.querySelectorAll('.template-card img')).toHaveLength(6);
+  for (const id of TEMPLATE_IDS) {
+    const title = TEMPLATE_INFO[id].title;
+    const before = mock.api.mock.calls.filter((c) => c[1] === 'POST').length;
+    await act(async () =>
+      (host.querySelector('[aria-label="先玩一玩' + title + '"]') as HTMLButtonElement).click(),
+    );
+    expect(host.querySelector('.sample-picker .active')?.textContent).toContain(title);
+    expect(mock.api.mock.calls.filter((c) => c[1] === 'POST')).toHaveLength(before);
+    await click('我的作品');
+    await act(async () =>
+      (host.querySelector('[aria-label="开始创作' + title + '"]') as HTMLButtonElement).click(),
+    );
+    expect(mock.api).toHaveBeenCalledWith('/projects', 'POST', { document: adventureTemplate(id) });
+    expect(host.querySelector('.section-heading h1')?.textContent).toBe(title);
+    await click('我的作品');
+  }
 });

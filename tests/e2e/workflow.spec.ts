@@ -14,6 +14,7 @@ test('teacher, two creators, review, play, feedback and withdrawal', async ({ br
     await expect(t.getByText(name + ' · ' + name)).toBeVisible();
   }
   await login(a, 'alice');
+  await a.getByText('经典格子玩法与作品导入', { exact: true }).click();
   await a.getByRole('button', { name: '从月光花园开始' }).click();
   await a.getByLabel('作品名称').fill('我的第一座花园');
   await a.getByRole('button', { name: '橡皮擦', exact: true }).click();
@@ -87,6 +88,7 @@ test('offline drafts, history, JSON roundtrip and revision conflict preserve wor
   const context = await browser.newContext(),
     p = await context.newPage();
   await login(p, 'draftuser');
+  await p.getByText('经典格子玩法与作品导入', { exact: true }).click();
   await p.getByRole('button', { name: '从转角的礼物开始' }).click();
   await p.getByLabel('作品名称').fill('离线前');
   await p.getByRole('button', { name: '保存到服务器' }).click();
@@ -220,6 +222,7 @@ test('account switching clears privileged cached feedback even when storage and 
       },
     }),
   );
+  await p.getByText('经典格子玩法与作品导入', { exact: true }).click();
   await p.getByRole('button', { name: '从月光花园开始' }).click();
   await expect(p.getByRole('alert')).toContainText('连接暂时不可用');
   await expect(p.getByText('仅老师可见的反馈')).toHaveCount(0);

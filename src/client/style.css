@@ -1006,3 +1006,102 @@ select {
   width: auto;
   margin: 0;
 }
+
+/* Homepage: two play styles, six editable starting points. */
+.hero {
+  padding: 28px 32px;
+  margin-bottom: 28px;
+}
+.hero h1 {
+  margin-bottom: 12px;
+}
+.hero p {
+  max-width: 900px;
+  margin-bottom: 8px;
+}
+.my-worlds-link {
+  display: inline-block;
+  color: #245a48;
+  font-weight: 600;
+  margin-top: 10px;
+}
+.template-group {
+  margin-bottom: 32px;
+}
+.template-group-heading h2 {
+  margin-bottom: 4px;
+}
+.template-group-heading p {
+  margin-bottom: 18px;
+}
+.template-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.template-card {
+  border: 1px solid #dce2d5;
+  border-radius: 15px;
+  overflow: hidden;
+  background: #fffdf8;
+}
+.template-card > img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 3;
+  object-fit: cover;
+  background: #e7eddb;
+}
+.template-card-body {
+  padding: 18px 20px 20px;
+}
+.template-focus {
+  color: #647362;
+  font-size: 12px;
+}
+.template-card h3 {
+  font-size: 21px;
+  margin: 4px 0 8px;
+}
+.template-card p {
+  min-height: 3.3em;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.template-card button {
+  padding: 8px 13px;
+}
+.template-note {
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+.legacy-templates {
+  padding: 16px 20px;
+  border: 1px solid #dce2d5;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+.legacy-templates summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.legacy-templates .row {
+  margin-top: 16px;
+}
+#my-worlds {
+  scroll-margin-top: 24px;
+}
+@media (max-width: 900px) {
+  .template-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .template-cards {
+    grid-template-columns: 1fr;
+  }
+  .hero {
+    padding: 24px;
+  }
+}
