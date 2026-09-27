@@ -17,8 +17,8 @@
     "test:e2e": "playwright test",
     "bootstrap": "tsx src/server/admin.ts",
     "backup": "tsx src/server/backup.ts",
-    "format": "prettier --write src tests scripts/*.mjs *.ts *.json index.html",
-    "format:check": "prettier --check src tests scripts/*.mjs *.ts *.json index.html"
+    "format": "prettier --write src tests scripts/*.mjs scripts/*.ts *.ts *.json index.html",
+    "format:check": "prettier --check src tests scripts/*.mjs scripts/*.ts *.ts *.json index.html"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.2",

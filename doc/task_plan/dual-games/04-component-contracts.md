@@ -29,3 +29,5 @@ TemplateGallery仅提供类型化TemplateId回调与六张静态截图；App复�
 用户2026-09-27明确：我的小世界提供删除能力；必须再次确认并提示不可恢复；取消保留作品，确认后永久删除，不实现可恢复归档。沿用本人作品权限及共享素材/独立改编保留边界。首次保存建档及具体DELETE协议仍见下一轮方案草案，不将候选接口冒充已实现。
 
 M8生效接口和边界：C81–C84见20-m8-contract.md（用户已采纳方案，D36）。
+
+M9共享platformLimits与空间索引供validator/editor/runtime；list summary明确document只有标题/类型等摘要，需详情读取后使用完整数据。

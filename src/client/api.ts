@@ -32,6 +32,13 @@ export interface Version {
   reviewNote: string;
   authorName: string;
 }
+export interface DocumentSummary {
+  title: string;
+  schemaVersion: number;
+  gameType?: string | null;
+}
+export type ProjectSummary = Omit<Project, 'document'> & { document: DocumentSummary };
+export type VersionSummary = Omit<Version, 'document'> & { document: DocumentSummary };
 export interface Feedback {
   location?: Location | null;
   id: string;

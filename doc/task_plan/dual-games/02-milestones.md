@@ -58,3 +58,5 @@ M6切片/边界见16-m6-contract.md，C61–C64；先S6.1框选，不用M3冻结
 |M10|feature/m10-long-worlds-polish|2048×64目标/容量实测/模板差异/总体回归|独立审计/实测预算/最终视频/部署|
 
 M8已完成并冻结；验证见21-m8-verification.md。下一阶段M9，M10未开始。
+
+M9 active；契约22-m9-contract.md，M8基线f7a3af5。

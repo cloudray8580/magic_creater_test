@@ -5,7 +5,7 @@ import {
   type AdventureDocument,
 } from './adventure/document.js';
 export type CreativeDocument = GameDocument | AdventureDocument;
-export const DOCUMENT_BYTES = 256 * 1024;
+export const DOCUMENT_BYTES = 1024 * 1024;
 export function validateCreative(value: AdventureDocument, playable?: boolean): AdventureDocument;
 export function validateCreative(value: unknown, playable?: boolean): CreativeDocument;
 export function validateCreative(value: unknown, playable = false): CreativeDocument {

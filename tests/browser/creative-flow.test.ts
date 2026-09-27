@@ -78,12 +78,27 @@ async function start() {
   };
   mocks.api.mockImplementation(
     async (url: string, method: string = 'GET', body?: Record<string, unknown>) => {
+      const summary = url.includes('?summary=1');
+      url = url.split('?')[0];
       if (url === '/me')
         return {
           user: { id: 'u', role: 'student', username: 'author', displayName: '作者', active: true },
           classroom: { name: '小组' },
         };
-      if (url === '/projects') return { projects: [project] };
+      if (url === '/projects')
+        return {
+          projects: [
+            summary
+              ? {
+                  ...project,
+                  document: {
+                    title: project.document.title,
+                    schemaVersion: project.document.schemaVersion,
+                  },
+                }
+              : project,
+          ],
+        };
       if (url === '/projects/p') {
         if (method === 'PUT')
           project = {
@@ -101,7 +116,20 @@ async function start() {
           document: { ...(body!.document as Project['document']), title: '新改稿 副本' },
         };
       if (url === '/versions/v/remix') return { ...project, id: 'remix', allowRemix: false };
-      if (url.endsWith('/versions')) return { versions: [version] };
+      if (url.endsWith('/versions'))
+        return {
+          versions: [
+            summary
+              ? {
+                  ...version,
+                  document: {
+                    title: version.document.title,
+                    schemaVersion: version.document.schemaVersion,
+                  },
+                }
+              : version,
+          ],
+        };
       if (url === '/versions/v') return version;
       if (url === '/versions/v/feedback') return { ok: true };
       if (url.endsWith('/feedback'))

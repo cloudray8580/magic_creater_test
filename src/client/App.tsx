@@ -5,6 +5,8 @@ import {
   setExpectedUser,
   type User,
   type Project,
+  type ProjectSummary,
+  type VersionSummary,
   type Version,
   type Feedback,
 } from './api.js';
@@ -64,7 +66,7 @@ function download(doc: unknown, filename = 'creative-world.json') {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function App() {
-  const [deleteTarget, setDeleteTarget] = useState<Project>();
+  const [deleteTarget, setDeleteTarget] = useState<ProjectSummary>();
   const actionPending = useRef(false);
   const currentLocation = useRef<Location | null>(null);
   const [feedbackLocation, setFeedbackLocation] = useState<Location>();
@@ -89,16 +91,16 @@ export function App() {
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
     [error, setError] = useState('');
-  const [projects, setProjects] = useState<Project[]>([]),
+  const [projects, setProjects] = useState<ProjectSummary[]>([]),
     [project, setProject] = useState<Project>(),
     [history, setHistory] = useState<History<GameDocument>>(),
     [tool, setTool] = useState<Tool>('wall'),
     [dirty, setDirty] = useState(false),
     [draftState, setDraftState] = useState(''),
     [preview, setPreview] = useState(false);
-  const [versions, setVersions] = useState<Version[]>([]),
+  const [versions, setVersions] = useState<VersionSummary[]>([]),
     [feedback, setFeedback] = useState<Feedback[]>([]),
-    [shelf, setShelf] = useState<Version[]>([]),
+    [shelf, setShelf] = useState<VersionSummary[]>([]),
     [playing, setPlaying] = useState<Version>(),
     [members, setMembers] = useState<User[]>([]),
     [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
@@ -110,7 +112,7 @@ export function App() {
     const version = await api<Version>('/versions/' + feedback.versionId);
     setLocatedFeedback({ document: version.document, feedback });
   }
-  async function copyProject(p: Project, document?: GameDocument) {
+  async function copyProject(p: ProjectSummary, document?: GameDocument) {
     if (p.local || p.deleted) {
       const doc = validateDocument({
         ...(document ?? p.document),
@@ -129,7 +131,7 @@ export function App() {
     );
   }
   async function refreshMine(owner = user?.id) {
-    const remote = (await api<{ projects: Project[] }>('/projects')).projects;
+    const remote = (await api<{ projects: ProjectSummary[] }>('/projects?summary=1')).projects;
     let local: Project[] = [];
     if (owner)
       try {
@@ -167,7 +169,7 @@ export function App() {
       return;
     }
     const [v, f] = await Promise.all([
-      api<{ versions: Version[] }>('/projects/' + id + '/versions'),
+      api<{ versions: VersionSummary[] }>('/projects/' + id + '/versions?summary=1'),
       api<{ feedback: Feedback[] }>('/projects/' + id + '/feedback'),
     ]);
     setVersions(v.versions);
@@ -176,7 +178,7 @@ export function App() {
   async function refreshManage() {
     const [m, v, f] = await Promise.all([
       api<{ members: User[] }>('/members'),
-      api<{ versions: Version[] }>('/manage/versions'),
+      api<{ versions: VersionSummary[] }>('/manage/versions?summary=1'),
       api<{ feedback: Feedback[] }>('/manage/feedback'),
     ]);
     setMembers(m.members);
@@ -324,14 +326,14 @@ export function App() {
       local: true,
     });
   }
-  async function deleteProject(p: Project) {
+  async function deleteProject(p: ProjectSummary) {
     const release = await holdDraft(user!.id, projectLockId(p));
     try {
       let target = p;
       if (p.local && p.saveAttempted) {
-        const remote = (await api<{ projects: Project[] }>('/projects')).projects.find(
-          (item) => item.creationKey === p.id.slice(6),
-        );
+        const remote = (
+          await api<{ projects: ProjectSummary[] }>('/projects?summary=1')
+        ).projects.find((item) => item.creationKey === p.id.slice(6));
         if (remote) target = { ...remote, revision: p.revision };
       }
       if (!target.local) {
@@ -380,7 +382,8 @@ export function App() {
   async function navigate(next: View) {
     setPreview(false);
     if (next === 'mine') await refreshMine();
-    if (next === 'shelf') setShelf((await api<{ versions: Version[] }>('/shelf')).versions);
+    if (next === 'shelf')
+      setShelf((await api<{ versions: VersionSummary[] }>('/shelf?summary=1')).versions);
     if (next === 'manage') await refreshManage();
     releaseEditor();
     setView(next);
@@ -599,7 +602,7 @@ export function App() {
           退出登录
         </button>
         <a
-          href="https://github.com/cloudray8580/magic_creater_test/releases/tag/m8"
+          href="https://github.com/cloudray8580/magic_creater_test/releases/tag/m9"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -757,7 +760,9 @@ export function App() {
                         onClick={() =>
                           void action(async () =>
                             openProject(
-                              p.local || p.deleted ? p : await api<Project>('/projects/' + p.id),
+                              p.local || p.deleted
+                                ? { ...p, document: validateDocument(p.document) }
+                                : await api<Project>('/projects/' + p.id),
                             ),
                           )
                         }
@@ -766,9 +771,17 @@ export function App() {
                       </button>
                       <button
                         onClick={() =>
-                          void action(async () =>
-                            download(await exportPortable(user!.id, p.document, p.source)),
-                          )
+                          void action(async () => {
+                            const full =
+                              p.local || p.deleted ? p : await api<Project>('/projects/' + p.id);
+                            download(
+                              await exportPortable(
+                                user!.id,
+                                validateDocument(full.document),
+                                full.source,
+                              ),
+                            );
+                          })
                         }
                       >
                         导出
@@ -1296,10 +1309,12 @@ export function App() {
                     </div>
                     <div className="row">
                       <button
-                        onClick={() => {
-                          setPlaying(v);
-                          setView('play');
-                        }}
+                        onClick={() =>
+                          void action(async () => {
+                            setPlaying(await api<Version>('/versions/' + v.id));
+                            setView('play');
+                          })
+                        }
                       >
                         检查试玩
                       </button>

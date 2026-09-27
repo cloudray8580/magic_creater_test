@@ -1,3 +1,6 @@
+import { WorldMinimap } from './WorldMinimap.js';
+import { roomIndex, intersects } from '../shared/adventure/spatial.js';
+import { DOCUMENT_BYTES } from '../shared/creative.js';
 import { tileTexture } from './adventure/view.js';
 import {
   selectArea,
@@ -14,9 +17,18 @@ import { flushSync } from 'react-dom';
 import { updateDialoguePage } from '../shared/adventure/story-editor.js';
 import { NumberInput } from './EditorInputs.js';
 import { ConditionEditor, StoryObjectPanel, StoryWorldPanel } from './StoryPanels.js';
-import { useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import {
+  useId,
+  useRef,
+  useState,
+  useMemo,
+  useLayoutEffect,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import {
   BUILTIN_SKINS,
+  PLATFORM_LIMITS,
+  WORLD_LIMITS,
   type AdventureDocument,
   type Location,
   type WorldObject,
@@ -177,6 +189,99 @@ export function AdventureEditor({
   const current = draft ?? doc,
     room = current.rooms.find((r) => r.id === roomId) ?? current.rooms[0];
   const object = room.objects.find((o) => o.id === selected);
+  const [viewport, setViewport] = useState({ x: 0, y: 0, width: 700, height: 450 });
+  useLayoutEffect(() => {
+    const el = scroll.current!;
+    const measure = () =>
+      setViewport((previous) => {
+        const next = {
+          x: el.scrollLeft,
+          y: el.scrollTop,
+          width: el.clientWidth,
+          height: el.clientHeight,
+        };
+        return Object.keys(next).every(
+          (key) => next[key as keyof typeof next] === previous[key as keyof typeof previous],
+        )
+          ? previous
+          : next;
+      });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    el.addEventListener('scroll', measure);
+    return () => {
+      observer.disconnect();
+      el.removeEventListener('scroll', measure);
+    };
+  }, [room.id, room.width, room.height, zoom]);
+  const area = useMemo(
+    () => ({
+      x: viewport.x / (CELL * zoom),
+      y: viewport.y / (CELL * zoom),
+      width: viewport.width / (CELL * zoom),
+      height: viewport.height / (CELL * zoom),
+    }),
+    [viewport, zoom],
+  );
+  const visible = useMemo(
+    () => ({ x: area.x - 2, y: area.y - 2, width: area.width + 4, height: area.height + 4 }),
+    [area],
+  );
+  const visibleTiles = useMemo(() => roomIndex(room).query(visible), [room, visible]);
+  const visibleObjects = useMemo(
+    () =>
+      room.objects.filter((o) =>
+        intersects(visible, { x: o.x, y: o.y, width: o.width ?? 1, height: o.height ?? 1 }),
+      ),
+    [room, visible],
+  );
+  const overview = zoom < 0.12;
+  const overviewPaths = useMemo(
+    () =>
+      overview
+        ? ['solid', 'water', 'oneway'].map((kind) => ({
+            kind,
+            path: visibleTiles
+              .filter((t) => t.kind === kind)
+              .map((t) => `M${t.x * CELL},${t.y * CELL}h${CELL}v${CELL}h-${CELL}z`)
+              .join(''),
+          }))
+        : [],
+    [overview, visibleTiles],
+  );
+  const budget = useMemo(
+    () => ({
+      bytes: new TextEncoder().encode(JSON.stringify(doc)).length,
+      tiles: doc.rooms.reduce((n, r) => n + r.tiles.length, 0),
+      objects: doc.rooms.reduce((n, r) => n + r.objects.length, 0),
+    }),
+    [doc],
+  );
+  const limits = doc.gameType === 'platformer' ? PLATFORM_LIMITS : WORLD_LIMITS;
+  function locate(x: number, y: number) {
+    scroll.current?.scrollTo({
+      left: x * CELL * zoom - viewport.width / 2,
+      top: y * CELL * zoom - viewport.height / 2,
+    });
+  }
+  function zoomTo(value: number) {
+    const x = area.x + area.width / 2,
+      y = area.y + area.height / 2;
+    setZoom(value);
+    requestAnimationFrame(() =>
+      scroll.current?.scrollTo(
+        x * CELL * value - viewport.width / 2,
+        y * CELL * value - viewport.height / 2,
+      ),
+    );
+  }
+  function expand() {
+    change(() =>
+      resizeRoom(doc, room.id, Math.min(PLATFORM_LIMITS.width, room.width + 64), room.height),
+    );
+  }
+
   const latest = useRef({ doc, room, onChange });
   latest.current = { doc, room, onChange };
   function chooseImage(skin: string, objectId?: string) {
@@ -532,11 +637,11 @@ export function AdventureEditor({
           <button disabled={!canRedo} onClick={() => historyAction(true)}>
             重做
           </button>
-          <button aria-label="缩小地图" onClick={() => setZoom(Math.max(0.005, zoom / 1.25))}>
+          <button aria-label="缩小地图" onClick={() => zoomTo(Math.max(0.005, zoom / 1.25))}>
             −
           </button>
           <span>{Math.round(zoom * 100)}%</span>
-          <button aria-label="放大地图" onClick={() => setZoom(Math.min(1.8, zoom * 1.25))}>
+          <button aria-label="放大地图" onClick={() => zoomTo(Math.min(1.8, zoom * 1.25))}>
             ＋
           </button>
           <button
@@ -587,6 +692,51 @@ export function AdventureEditor({
             </button>
           </div>
         )}
+        <div className="map-navigation">
+          <div className="row">
+            <button
+              disabled={doc.start?.roomId !== room.id}
+              onClick={() => {
+                if (doc.start) locate(doc.start.x, doc.start.y);
+              }}
+            >
+              定位起点
+            </button>
+            <button
+              disabled={!room.objects.some((o) => o.kind === 'goal')}
+              onClick={() => {
+                const goal = room.objects.find((o) => o.kind === 'goal')!;
+                locate(goal.x, goal.y);
+              }}
+            >
+              定位终点
+            </button>
+            <button
+              disabled={!object}
+              onClick={() => {
+                if (object) locate(object.x, object.y);
+              }}
+            >
+              定位选中物
+            </button>
+            {doc.gameType === 'platformer' && (
+              <button disabled={room.width >= PLATFORM_LIMITS.width} onClick={expand}>
+                向右扩展64格
+              </button>
+            )}
+          </div>
+          <WorldMinimap room={room} area={area} start={doc.start} onNavigate={locate} />
+          <small>
+            空间 {room.width}×{room.height} 格 · 地形 {budget.tiles}/{limits.tiles} · 物体{' '}
+            {budget.objects}/{limits.objects} · 文档 {Math.ceil(budget.bytes / 1024)}/
+            {DOCUMENT_BYTES / 1024} KiB
+          </small>
+          {(budget.bytes > DOCUMENT_BYTES * 0.85 ||
+            budget.tiles > limits.tiles * 0.85 ||
+            budget.objects > limits.objects * 0.85) && (
+            <small role="status">接近内容容量上限；空白地图不占地形预算。</small>
+          )}
+        </div>
         <div className="editor-scroll" ref={scroll}>
           <svg
             ref={svg}
@@ -649,17 +799,25 @@ export function AdventureEditor({
               height="100%"
               fill={doc.gameType === 'story' ? `url(#${gridId}-floor)` : '#d5e8df'}
             />
-            {room.tiles.map((t) => (
-              <image
-                key={`${t.x},${t.y}`}
-                x={t.x * CELL}
-                y={t.y * CELL}
-                width={CELL}
-                height={CELL}
-                href={`/art/storybook-v1/${tileTexture(doc.gameType, room, t)}.svg`}
+            {!overview &&
+              visibleTiles.map((t) => (
+                <image
+                  key={`${t.x},${t.y}`}
+                  x={t.x * CELL}
+                  y={t.y * CELL}
+                  width={CELL}
+                  height={CELL}
+                  href={`/art/storybook-v1/${tileTexture(doc.gameType, room, t)}.svg`}
+                />
+              ))}
+            {overviewPaths.map(({ kind, path }) => (
+              <path
+                key={kind}
+                d={path}
+                fill={kind === 'water' ? '#83b6c7' : kind === 'oneway' ? '#ad8057' : '#739568'}
               />
             ))}
-            {room.objects.map((o) => (
+            {visibleObjects.map((o) => (
               <g
                 key={o.id}
                 data-object-id={o.id}
@@ -787,6 +945,27 @@ export function AdventureEditor({
                   />
                 );
               })()}
+            {doc.gameType === 'platformer' &&
+              room.width < PLATFORM_LIMITS.width &&
+              visible.x + visible.width >= room.width - 1 && (
+                <foreignObject
+                  x={(room.width - 3) * CELL}
+                  y={Math.max(0, Math.min(room.height - 2, area.y + 1)) * CELL}
+                  width={3 * CELL}
+                  height={2 * CELL}
+                >
+                  <button
+                    aria-label="在右边缘扩展地图"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      expand();
+                    }}
+                  >
+                    ＋64格
+                  </button>
+                </foreignObject>
+              )}
           </svg>
         </div>
         <div className="editor-status">
@@ -1119,7 +1298,7 @@ export function AdventureEditor({
                 <NumberInput
                   value={room.width}
                   min={4}
-                  max={doc.gameType === 'platformer' ? 128 : 32}
+                  max={doc.gameType === 'platformer' ? PLATFORM_LIMITS.width : 32}
                   onCommit={(value) => change(() => resizeRoom(doc, room.id, value, room.height))}
                 />
               </label>
@@ -1128,7 +1307,7 @@ export function AdventureEditor({
                 <NumberInput
                   value={room.height}
                   min={4}
-                  max={doc.gameType === 'platformer' ? 32 : 24}
+                  max={doc.gameType === 'platformer' ? PLATFORM_LIMITS.height : 24}
                   onCommit={(value) => change(() => resizeRoom(doc, room.id, room.width, value))}
                 />
               </label>

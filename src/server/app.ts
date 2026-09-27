@@ -368,13 +368,24 @@ export async function createApp(options: AppOptions) {
       return projectView(project);
     },
   );
+  function summaryDocument(alias: 'p' | 'v') {
+    return `json_object('title',json_extract(${alias}.document,'$.title'),'schemaVersion',json_extract(${alias}.document,'$.schemaVersion'),'gameType',json_extract(${alias}.document,'$.gameType')) AS document`;
+  }
+  function wantsSummary(req: FastifyRequest) {
+    return (req.query as { summary?: string }).summary === '1';
+  }
   app.get('/api/projects', async (req) => {
     const u = currentUser(req);
     return {
       projects: (
         db
           .prepare(
-            'SELECT p.*,c.creation_key FROM projects p LEFT JOIN project_creations c ON c.project_id=p.id AND c.owner_id=p.owner_id WHERE p.owner_id=? AND p.classroom_id=? ORDER BY p.updated_at DESC,p.id',
+            'SELECT ' +
+              (wantsSummary(req)
+                ? 'p.id,p.owner_id,p.classroom_id,p.revision,p.updated_at,p.source,p.allow_remix,' +
+                  summaryDocument('p')
+                : 'p.*') +
+              ',c.creation_key FROM projects p LEFT JOIN project_creations c ON c.project_id=p.id AND c.owner_id=p.owner_id WHERE p.owner_id=? AND p.classroom_id=? ORDER BY p.updated_at DESC,p.id',
           )
           .all(u.id, u.classroom_id) as ProjectRow[]
       ).map(projectView),
@@ -496,6 +507,13 @@ export async function createApp(options: AppOptions) {
   }
   const versionSelect =
     'SELECT v.*,p.owner_id,p.classroom_id,u.display_name AS author_name FROM versions v JOIN projects p ON p.id=v.project_id JOIN users u ON u.id=p.owner_id';
+  function versionListSelect(req: FastifyRequest) {
+    return wantsSummary(req)
+      ? 'SELECT v.id,v.project_id,v.source_revision,v.status,v.review_note,v.created_at,v.source,v.allow_remix,' +
+          summaryDocument('v') +
+          ',p.owner_id,p.classroom_id,u.display_name AS author_name FROM versions v JOIN projects p ON p.id=v.project_id JOIN users u ON u.id=p.owner_id'
+      : versionSelect;
+  }
   function versionView(v: VersionRow) {
     return {
       id: v.id,
@@ -578,7 +596,7 @@ export async function createApp(options: AppOptions) {
     return {
       versions: (
         db
-          .prepare(versionSelect + ' WHERE p.id=? ORDER BY v.created_at DESC')
+          .prepare(versionListSelect(req) + ' WHERE p.id=? ORDER BY v.created_at DESC')
           .all(p.id) as VersionRow[]
       ).map(versionView),
     };
@@ -589,7 +607,7 @@ export async function createApp(options: AppOptions) {
       versions: (
         db
           .prepare(
-            versionSelect +
+            versionListSelect(req) +
               " WHERE p.classroom_id=? AND v.status='approved' ORDER BY v.created_at DESC",
           )
           .all(u.classroom_id) as VersionRow[]
@@ -604,7 +622,7 @@ export async function createApp(options: AppOptions) {
     return {
       versions: (
         db
-          .prepare(versionSelect + ' WHERE p.classroom_id=? ORDER BY v.created_at DESC')
+          .prepare(versionListSelect(req) + ' WHERE p.classroom_id=? ORDER BY v.created_at DESC')
           .all(u.classroom_id) as VersionRow[]
       ).map(versionView),
     };

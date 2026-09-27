@@ -1,3 +1,4 @@
+import { roomIndex } from './spatial.js';
 import {
   ensure,
   validateAdventure,
@@ -197,10 +198,18 @@ export function platformAction(
 function approach(value: number, target: number, step: number) {
   return value < target ? Math.min(value + step, target) : Math.max(value - step, target);
 }
+function nearbyTiles(s: PlatformSession) {
+  return roomIndex(s.document.rooms[0]).query({
+    x: s.state.x - 2,
+    y: s.state.y - 2,
+    width: 5,
+    height: 6,
+  });
+}
 function solids(s: PlatformSession): Rect[] {
   const room = s.document.rooms[0];
   return [
-    ...room.tiles
+    ...nearbyTiles(s)
       .filter((t) => t.kind === 'solid')
       .map((t) => ({ x: t.x, y: t.y, width: 1, height: 1 })),
     ...room.objects
@@ -267,7 +276,7 @@ function tick(s: PlatformSession, input: PlatformInput) {
   p.groundId = null;
   const platforms: Rect[] = [
     ...blocks,
-    ...room.tiles
+    ...nearbyTiles(s)
       .filter((t) => t.kind === 'oneway')
       .map((t) => ({ x: t.x, y: t.y, width: 1, height: 0.2 })),
     ...room.objects
@@ -330,7 +339,7 @@ function tick(s: PlatformSession, input: PlatformInput) {
     room.objects.some(
       (o) => ['hazard', 'patrol'].includes(o.kind) && overlap(body(p), objectRect(o, p.elapsed)),
     );
-  for (const t of room.tiles)
+  for (const t of nearbyTiles(s))
     if (t.kind === 'water' && overlap(body(p), { ...t, width: 1, height: 1 })) died = true;
   for (const o of room.objects) {
     const hit = overlap(body(p), objectRect(o, p.elapsed));

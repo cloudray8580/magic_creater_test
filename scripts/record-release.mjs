@@ -98,75 +98,141 @@ try {
       await page.getByRole('button', { name: '进入工坊' }).click();
     },
   );
-  await cue('两种玩法，六个灵感起点；我的小世界从空白开始', 7, async () => {
-    await page.locator('#my-worlds').scrollIntoViewIfNeeded();
-    await page.waitForTimeout(2000);
-    await page.locator('.template-group').first().scrollIntoViewIfNeeded();
-  });
-  await cue('打开模板不会增加作品。先试着创作，再决定保存', 6, async () => {
-    await page.getByRole('button', { name: '开始创作云间邮差', exact: true }).click();
-    await page.getByRole('button', { name: '适合窗口', exact: true }).click();
-  });
-  await cue('改名字、画地形、布置惊喜；修改会自动留下本地草稿', 10, async () => {
-    await page.getByLabel('作品名称').fill('寄给晚风的一封信');
-    await page.getByRole('button', { name: '花', exact: true }).click();
-    const canvas = page.getByRole('application', { name: '关卡画布' });
-    await canvas.scrollIntoViewIfNeeded();
-    const b = await canvas.boundingBox(),
-      v = await canvas.evaluate((el) => ({
-        w: el.viewBox.baseVal.width,
-        h: el.viewBox.baseVal.height,
-      }));
-    for (const x of [4, 6, 8]) {
-      await page.mouse.click(
-        b.x + (((x + 0.5) * 40) / v.w) * b.width,
-        b.y + ((13.5 * 40) / v.h) * b.height,
-      );
-      await page.waitForTimeout(450);
-    }
-    await page.getByRole('button', { name: '撤销', exact: true }).click();
-    await page.waitForTimeout(500);
-    await page.getByRole('button', { name: '重做', exact: true }).click();
-  });
-  await cue('随时进入试玩：跑一跑、跳一跳，看看自己的设计', 12, async () => {
-    await page.getByRole('button', { name: '试玩关卡', exact: true }).click();
-    await page.getByRole('button', { name: '点击进入小世界' }).click();
-    await page.locator('.game-stage').scrollIntoViewIfNeeded();
-    await page.keyboard.down('ArrowRight');
-    await page.waitForTimeout(2000);
-    await page.keyboard.down('Space');
-    await page.waitForTimeout(500);
-    await page.keyboard.up('Space');
-    await page.waitForTimeout(1800);
-    await page.keyboard.up('ArrowRight');
-    await page.getByRole('button', { name: '回检查点', exact: true }).click();
-  });
-  await cue('满意后点击保存；只有自己创作的作品会进入列表', 6, async () => {
-    await page.getByRole('button', { name: '返回编辑', exact: true }).click();
-    await page.getByRole('button', { name: '保存到服务器' }).click();
-    await page.getByText('已保存到服务器', { exact: true }).waitFor();
-    await page.getByRole('button', { name: '我的作品', exact: true }).click();
-    await page.locator('#my-worlds').scrollIntoViewIfNeeded();
-  });
-  await cue('删除需要再次确认；作品、版本与反馈会永久移除', 8, async () => {
-    await page.locator('.cards article').getByRole('button', { name: '删除作品' }).click();
-    await page.waitForTimeout(2500);
-    await page.getByRole('button', { name: '取消', exact: true }).click();
-    await page.waitForTimeout(1000);
-    await page.locator('.cards article').getByRole('button', { name: '删除作品' }).click();
-    await page.getByRole('button', { name: '永久删除', exact: true }).click();
-  });
-  await cue('也可以创作探索故事：一封信、一个选择，都能改变旅程', 8, async () => {
-    await page.getByRole('button', { name: '先玩一玩森林里的来信', exact: true }).click();
-    await page.getByRole('button', { name: '点击进入小世界' }).click();
-    await page.locator('.game-stage').scrollIntoViewIfNeeded();
-    await page.keyboard.down('ArrowDown');
-    await page.waitForTimeout(400);
-    await page.keyboard.up('ArrowDown');
-    await page.keyboard.down('ArrowRight');
-    await page.waitForTimeout(550);
-    await page.keyboard.up('ArrowRight');
-  });
+  if (version === 'm8') {
+    await cue('两种玩法，六个灵感起点；我的小世界从空白开始', 7, async () => {
+      await page.locator('#my-worlds').scrollIntoViewIfNeeded();
+      await page.waitForTimeout(2000);
+      await page.locator('.template-group').first().scrollIntoViewIfNeeded();
+    });
+    await cue('打开模板不会增加作品。先试着创作，再决定保存', 6, async () => {
+      await page.getByRole('button', { name: '开始创作云间邮差', exact: true }).click();
+      await page.getByRole('button', { name: '适合窗口', exact: true }).click();
+    });
+    await cue('改名字、画地形、布置惊喜；修改会自动留下本地草稿', 10, async () => {
+      await page.getByLabel('作品名称').fill('寄给晚风的一封信');
+      await page.getByRole('button', { name: '花', exact: true }).click();
+      const canvas = page.getByRole('application', { name: '关卡画布' });
+      await canvas.scrollIntoViewIfNeeded();
+      const b = await canvas.boundingBox(),
+        v = await canvas.evaluate((el) => ({
+          w: el.viewBox.baseVal.width,
+          h: el.viewBox.baseVal.height,
+        }));
+      for (const x of [4, 6, 8]) {
+        await page.mouse.click(
+          b.x + (((x + 0.5) * 40) / v.w) * b.width,
+          b.y + ((13.5 * 40) / v.h) * b.height,
+        );
+        await page.waitForTimeout(450);
+      }
+      await page.getByRole('button', { name: '撤销', exact: true }).click();
+      await page.waitForTimeout(500);
+      await page.getByRole('button', { name: '重做', exact: true }).click();
+    });
+    await cue('随时进入试玩：跑一跑、跳一跳，看看自己的设计', 12, async () => {
+      await page.getByRole('button', { name: '试玩关卡', exact: true }).click();
+      await page.getByRole('button', { name: '点击进入小世界' }).click();
+      await page.locator('.game-stage').scrollIntoViewIfNeeded();
+      await page.keyboard.down('ArrowRight');
+      await page.waitForTimeout(2000);
+      await page.keyboard.down('Space');
+      await page.waitForTimeout(500);
+      await page.keyboard.up('Space');
+      await page.waitForTimeout(1800);
+      await page.keyboard.up('ArrowRight');
+      await page.getByRole('button', { name: '回检查点', exact: true }).click();
+    });
+    await cue('满意后点击保存；只有自己创作的作品会进入列表', 6, async () => {
+      await page.getByRole('button', { name: '返回编辑', exact: true }).click();
+      await page.getByRole('button', { name: '保存到服务器' }).click();
+      await page.getByText('已保存到服务器', { exact: true }).waitFor();
+      await page.getByRole('button', { name: '我的作品', exact: true }).click();
+      await page.locator('#my-worlds').scrollIntoViewIfNeeded();
+    });
+    await cue('删除需要再次确认；作品、版本与反馈会永久移除', 8, async () => {
+      await page.locator('.cards article').getByRole('button', { name: '删除作品' }).click();
+      await page.waitForTimeout(2500);
+      await page.getByRole('button', { name: '取消', exact: true }).click();
+      await page.waitForTimeout(1000);
+      await page.locator('.cards article').getByRole('button', { name: '删除作品' }).click();
+      await page.getByRole('button', { name: '永久删除', exact: true }).click();
+    });
+    await cue('也可以创作探索故事：一封信、一个选择，都能改变旅程', 8, async () => {
+      await page.getByRole('button', { name: '先玩一玩森林里的来信', exact: true }).click();
+      await page.getByRole('button', { name: '点击进入小世界' }).click();
+      await page.locator('.game-stage').scrollIntoViewIfNeeded();
+      await page.keyboard.down('ArrowDown');
+      await page.waitForTimeout(400);
+      await page.keyboard.up('ArrowDown');
+      await page.keyboard.down('ArrowRight');
+      await page.waitForTimeout(550);
+      await page.keyboard.up('ArrowRight');
+    });
+  } else {
+    await cue('从小小的灵感出发，地图可以随着想象向外生长', 6, async () => {
+      await page.locator('.template-group').first().scrollIntoViewIfNeeded();
+      await page.getByRole('button', { name: '开始创作云间邮差', exact: true }).click();
+    });
+    await cue('点击扩展，一次增加64格；随时撤销或重做', 10, async () => {
+      await page.getByLabel('作品名称').fill('把路修到云的另一边');
+      await page.getByRole('button', { name: '向右扩展64格', exact: true }).click();
+      await page.getByRole('button', { name: '适合窗口', exact: true }).click();
+      await page.waitForTimeout(1600);
+      await page.getByRole('button', { name: '撤销', exact: true }).click();
+      await page.waitForTimeout(800);
+      await page.getByRole('button', { name: '重做', exact: true }).click();
+      await page.getByRole('button', { name: '适合窗口', exact: true }).click();
+    });
+    await cue('按住鼠标画出一条长路，一整笔只占一步撤销', 10, async () => {
+      await page.getByRole('button', { name: '地面', exact: true }).click();
+      const canvas = page.getByRole('application', { name: '关卡画布' });
+      const b = await canvas.boundingBox(),
+        v = await canvas.evaluate((el) => ({
+          w: el.viewBox.baseVal.width,
+          h: el.viewBox.baseVal.height,
+        }));
+      const pos = (x) => ({
+        x: b.x + (((x + 0.5) * 40) / v.w) * b.width,
+        y: b.y + ((14.5 * 40) / v.h) * b.height,
+      });
+      const begin = pos(42),
+        end = pos(104);
+      await page.mouse.move(begin.x, begin.y);
+      await page.mouse.down();
+      await page.mouse.move(end.x, end.y, { steps: 40 });
+      await page.mouse.up();
+      await page.waitForTimeout(2000);
+    });
+    await cue('小地图快速找远处；起点和终点也能一键定位', 8, async () => {
+      for (let i = 0; i < 5; i++) await page.getByRole('button', { name: '放大地图' }).click();
+      const map = page.getByRole('img', { name: '小地图，点击定位，方向键平移' });
+      const b = await map.boundingBox();
+      await page.mouse.click(b.x + b.width * 0.92, b.y + b.height * 0.8);
+      await page.waitForTimeout(2000);
+      await page.getByRole('button', { name: '定位起点', exact: true }).click();
+    });
+    await cue('创作之后立即试玩，感受跳跃、路面和机关', 12, async () => {
+      await page.getByRole('button', { name: '试玩关卡', exact: true }).click();
+      await page.getByRole('button', { name: '点击进入小世界' }).click();
+      await page.locator('.game-stage').scrollIntoViewIfNeeded();
+      await page.keyboard.down('ArrowRight');
+      await page.waitForTimeout(1600);
+      await page.keyboard.down('Space');
+      await page.waitForTimeout(350);
+      await page.keyboard.up('Space');
+      await page.waitForTimeout(1500);
+      await page.keyboard.up('ArrowRight');
+      await page.getByRole('button', { name: '回检查点', exact: true }).click();
+    });
+    await cue('本地草稿自动保留；保存后再邀请同伴体验', 6, async () => {
+      await page.getByRole('button', { name: '返回编辑', exact: true }).click();
+      await page.getByRole('button', { name: '保存到服务器' }).click();
+      await page.getByText('已保存到服务器', { exact: true }).waitFor();
+      await page.getByRole('button', { name: '我的作品', exact: true }).click();
+      await page.locator('#my-worlds').scrollIntoViewIfNeeded();
+    });
+    await cue(version.toUpperCase() + '｜更大的创作空间，小地图导航，流畅的编辑与试玩', 5);
+  }
   const video = page.video();
   await context.close();
   const raw = await video.path();

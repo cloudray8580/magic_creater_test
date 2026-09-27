@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
-import type { Project } from './api.js';
+import type { ProjectSummary } from './api.js';
 export function DeleteProjectDialog({
   project,
   onCancel,
   onConfirm,
 }: {
-  project: Project;
+  project: ProjectSummary;
   onCancel: () => void;
   onConfirm: () => void;
 }) {

@@ -180,10 +180,48 @@ export interface History<T = GameDocument> {
 export function createHistory<T>(doc: T): History<T> {
   return { past: [], present: structuredClone(doc), future: [] };
 }
+/** Clone changed branches but retain immutable equal branches across undo snapshots. */
+function snapshotKey(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object') return;
+  const row = value as Record<string, unknown>;
+  if (typeof row.id === 'string') return 'id:' + row.id;
+  if (typeof row.x === 'number' && typeof row.y === 'number') return 'cell:' + row.x + ',' + row.y;
+}
+function sharedSnapshot(previous: unknown, value: unknown): unknown {
+  if (Object.is(previous, value)) return previous;
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    const prior = Array.isArray(previous) ? previous : [];
+    const keyed = new Map(prior.map((item) => [snapshotKey(item), item]));
+    const useKeys = prior.length > 0 && !keyed.has(undefined) && keyed.size === prior.length;
+    const result = value.map((item, i) =>
+      sharedSnapshot(useKeys ? keyed.get(snapshotKey(item)) : prior[i], item),
+    );
+    return Array.isArray(previous) &&
+      result.length === prior.length &&
+      result.every((item, i) => item === prior[i])
+      ? previous
+      : result;
+  }
+  const prior =
+    previous && typeof previous === 'object' && !Array.isArray(previous)
+      ? (previous as Record<string, unknown>)
+      : {};
+  const entries = Object.entries(value),
+    result: Record<string, unknown> = {};
+  let same = entries.length === Object.keys(prior).length;
+  for (const [key, item] of entries) {
+    result[key] = sharedSnapshot(prior[key], item);
+    if (result[key] !== prior[key] || !Object.hasOwn(prior, key)) same = false;
+  }
+  return previous !== null && typeof previous === 'object' && !Array.isArray(previous) && same
+    ? previous
+    : result;
+}
 export function changeHistory<T>(history: History<T>, doc: T): History<T> {
   return {
     past: [...history.past, history.present].slice(-LIMITS.history),
-    present: structuredClone(doc),
+    present: sharedSnapshot(history.present, doc) as T,
     future: [],
   };
 }

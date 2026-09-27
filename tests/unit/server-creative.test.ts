@@ -270,7 +270,7 @@ it('validates optional feedback coordinates against the frozen version and keeps
 it('does not persist copies or remixes whose new title exceeds the document byte ceiling', async () => {
   const doc = adventureTemplate('forest-letter');
   doc.title = 'A';
-  for (let i = 0; i < 50; i++)
+  for (let i = 0; i < 200; i++)
     doc.rooms[0].objects.push({
       id: 'writer-' + i,
       kind: 'npc',
@@ -278,14 +278,15 @@ it('does not persist copies or remixes whose new title exceeds the document byte
       y: 4,
       dialogue: Array.from({ length: 8 }, (_, j) => ({ id: 'page-' + j, text: 'x', choices: [] })),
     });
-  const target = 256 * 1024 - 4;
+  const target = 1024 * 1024 - 4;
   for (const page of doc.rooms[0].objects
     .filter((o) => o.id.startsWith('writer-'))
     .flatMap((o) => o.dialogue!)) {
     const available = target - Buffer.byteLength(JSON.stringify(doc)) + 1;
     if (available <= 0) break;
     const bytes = Math.min(720, available);
-    page.text = '界'.repeat(Math.floor(bytes / 3)) + 'x'.repeat(bytes % 3);
+    page.text =
+      '界'.repeat(Math.floor(bytes / 3)) + (bytes % 3 === 2 ? 'é' : bytes % 3 === 1 ? 'x' : '');
     if (Buffer.byteLength(JSON.stringify(doc)) === target) break;
   }
   expect(Buffer.byteLength(JSON.stringify(doc))).toBe(target);
@@ -307,4 +308,62 @@ it('does not persist copies or remixes whose new title exceeds the document byte
   );
   expect((await request('POST', '/api/versions/' + v.id + '/remix', bob, {})).statusCode).toBe(400);
   expect(ctx.db.prepare('SELECT count(*) n FROM projects').get()).toEqual(before);
+});
+it('serves small owner/version/shelf/review summaries while full detail remains authorized and frozen', async () => {
+  const document = adventureTemplate();
+  document.rooms[0].width = 512;
+  document.rooms[0].height = 64;
+  const created = await request('POST', '/api/projects', alice, {
+    document,
+    creationKey: '12345678-1234-4123-8123-123456789abc',
+  });
+  expect(created.statusCode).toBe(201);
+  const p = created.json();
+  const summaries = (await request('GET', '/api/projects?summary=1', alice)).json().projects;
+  expect(summaries[0]).toMatchObject({
+    id: p.id,
+    revision: 1,
+    creationKey: p.creationKey,
+    document: { title: document.title, schemaVersion: 2, gameType: 'platformer' },
+  });
+  expect(summaries[0].document.rooms).toBeUndefined();
+  expect(JSON.stringify(summaries).length).toBeLessThan(1000);
+  expect((await request('GET', '/api/projects?summary=1', bob)).json().projects).toEqual([]);
+  expect((await request('GET', '/api/projects', alice)).json().projects[0].document).toEqual(
+    document,
+  );
+  const submitted = await request('POST', '/api/projects/' + p.id + '/submit', alice, {
+    revision: 1,
+  });
+  expect(submitted.statusCode).toBe(200);
+  const v = submitted.json();
+  for (const [url, cookie] of [
+    ['/api/projects/' + p.id + '/versions?summary=1', alice],
+    ['/api/manage/versions?summary=1', teacher],
+  ]) {
+    const res = await request('GET', url, cookie);
+    expect(res.statusCode).toBe(200);
+    expect(res.json().versions[0].document).toEqual(summaries[0].document);
+  }
+  expect((await request('GET', '/api/manage/versions?summary=1', bob)).statusCode).toBe(403);
+  expect(
+    (await request('GET', '/api/projects/' + p.id + '/versions?summary=1', bob)).statusCode,
+  ).toBe(404);
+  expect((await request('GET', '/api/versions/' + v.id, bob)).statusCode).toBe(404);
+  await request('PATCH', '/api/versions/' + v.id, teacher, { status: 'approved' });
+  expect((await request('GET', '/api/shelf?summary=1', bob)).json().versions[0].document).toEqual(
+    summaries[0].document,
+  );
+  await request('PUT', '/api/projects/' + p.id, alice, {
+    revision: 1,
+    document: { ...document, title: '新版草稿' },
+  });
+  expect((await request('GET', '/api/versions/' + v.id, bob)).json().document).toEqual(document);
+  expect((await request('GET', '/api/projects/' + p.id, alice)).json().document.title).toBe(
+    '新版草稿',
+  );
+  expect((await request('GET', '/api/shelf', bob)).json().versions[0].document).toEqual(document);
+  expect(
+    (await request('GET', '/api/manage/versions', teacher)).json().versions[0].document,
+  ).toEqual(document);
 });

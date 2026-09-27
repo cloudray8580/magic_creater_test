@@ -59,3 +59,5 @@ B56：同出口课堂登录限流，C56；12名真实账户同IP、单账号与�
 详细证据与方案单一正文：../../design/03-next-iteration-proposal.md；不是新功能已完成记录。
 
 B82/B83/B84及首次保存目标已由D36采纳，状态decided，M8测试后更新；B81分阶段目标采纳，M9/M10进入时细化验证。
+
+C91容量、C92视口索引、C93历史/草稿/摘要、C94性能与发布：accepted/implementing，见22-m9-contract.md。
