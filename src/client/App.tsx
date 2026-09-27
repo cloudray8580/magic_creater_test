@@ -17,9 +17,12 @@ import { DocumentPlay } from './DocumentPlay.js';
 import { AdventureEditor } from './AdventureEditor.js';
 import {
   validateCreative as validateDocument,
-  DOCUMENT_BYTES,
   type CreativeDocument as GameDocument,
 } from '../shared/creative.js';
+import { SourceCredit } from './SourceCredit.js';
+import { FeedbackMap } from './FeedbackMap.js';
+import { exportPortable } from './assets.js';
+import { BUNDLE_BYTES, parsePortable } from '../shared/portable.js';
 import { AdventurePlay } from './AdventurePlay.js';
 import { adventureTemplate, TEMPLATE_IDS, TEMPLATE_INFO } from '../shared/adventure/templates.js';
 import type { AdventureDocument, Location } from '../shared/adventure/document.js';
@@ -43,7 +46,14 @@ function download(doc: unknown, filename = 'creative-world.json') {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export function App() {
+  const currentLocation = useRef<Location | null>(null);
+  const [feedbackLocation, setFeedbackLocation] = useState<Location>();
+  const [locatedFeedback, setLocatedFeedback] = useState<{
+    document: GameDocument;
+    feedback: Feedback;
+  }>();
   const [sample, setSample] = useState<AdventureDocument>(() => adventureTemplate());
+  const [assetBusy, setAssetBusy] = useState(false);
   const [previewFrom, setPreviewFrom] = useState<Location>();
   const [invalidDraft, setInvalidDraft] = useState<{ raw: unknown }>();
   const editorLock = useRef<{ key: string; release: () => void } | null>(null);
@@ -72,6 +82,19 @@ export function App() {
     [playing, setPlaying] = useState<Version>(),
     [members, setMembers] = useState<User[]>([]),
     [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  useEffect(() => {
+    currentLocation.current = null;
+    setFeedbackLocation(undefined);
+  }, [playing?.id]);
+  async function showFeedbackLocation(feedback: Feedback) {
+    const version = await api<Version>('/versions/' + feedback.versionId);
+    setLocatedFeedback({ document: version.document, feedback });
+  }
+  async function copyProject(p: Project, document?: GameDocument) {
+    await openProject(
+      await api<Project>('/projects/' + p.id + '/copy', 'POST', document ? { document } : {}),
+    );
+  }
   async function refreshMine() {
     setProjects((await api<{ projects: Project[] }>('/projects')).projects);
   }
@@ -95,6 +118,10 @@ export function App() {
   }
   function clearAccountState() {
     releaseEditor();
+    setAssetBusy(false);
+    setLocatedFeedback(undefined);
+    setFeedbackLocation(undefined);
+    currentLocation.current = null;
     setUser(undefined);
     setClassroom('');
     setProject(undefined);
@@ -114,6 +141,10 @@ export function App() {
     setView('mine');
   }
   async function action(task: () => Promise<void>) {
+    if (assetBusy) {
+      setError('图片正在处理，请完成后再保存、导出或切换页面；仍可继续编辑。');
+      return;
+    }
     setBusy(true);
     setError('');
     setMessage('');
@@ -233,11 +264,12 @@ export function App() {
       .then(() => setDraftState('本地草稿已保存'))
       .catch(() => setDraftState('本地保存失败，请立即导出文件'));
   }
-  async function save(): Promise<Project> {
+  async function save(allowRemix = project?.allowRemix ?? false): Promise<Project> {
     if (invalidDraft !== undefined) throw new Error('请先导出未恢复草稿，再重新加载服务器版本');
     const p = await api<Project>('/projects/' + project!.id, 'PUT', {
       document: validateDocument(history!.present),
       revision: project!.revision,
+      allowRemix,
     });
     setProject(p);
     setDirty(false);
@@ -382,6 +414,16 @@ export function App() {
           </div>
         )}
         <fieldset disabled={busy} className="workspace">
+          {locatedFeedback?.feedback.location && (
+            <section className="panel">
+              <FeedbackMap
+                document={locatedFeedback.document}
+                location={locatedFeedback.feedback.location}
+              />
+              <p>{locatedFeedback.feedback.text}</p>
+              <button onClick={() => setLocatedFeedback(undefined)}>关闭位置示意</button>
+            </section>
+          )}
           {view === 'samples' && (
             <>
               <div className="sample-intro">
@@ -438,8 +480,12 @@ export function App() {
                         e.target.value = '';
                         if (f)
                           void action(async () => {
-                            if (f.size > DOCUMENT_BYTES) throw new Error('作品JSON不能超过256KiB');
-                            await create(validateDocument(JSON.parse(await f.text())));
+                            if (f.size > BUNDLE_BYTES) throw new Error('作品包不能超过8MiB');
+                            const input = JSON.parse(await f.text());
+                            parsePortable(input);
+                            await openProject(
+                              await api<Project>('/projects/import', 'POST', { bundle: input }),
+                            );
                           });
                       }}
                     />
@@ -457,6 +503,7 @@ export function App() {
                       ✿ <span>◉</span> ⚑
                     </div>
                     <h3>{p.document.title}</h3>
+                    <SourceCredit source={p.source} />
                     <p>服务器修订 {p.revision}</p>
                     <div className="row">
                       <button
@@ -469,19 +516,16 @@ export function App() {
                       >
                         继续创作
                       </button>
-                      <button onClick={() => download(p.document)}>导出</button>
                       <button
                         onClick={() =>
-                          void action(() =>
-                            create({
-                              ...p.document,
-                              title: (p.document.title + ' 副本').slice(0, 60),
-                            }),
+                          void action(async () =>
+                            download(await exportPortable(user!.id, p.document, p.source)),
                           )
                         }
                       >
-                        复制作品
+                        导出
                       </button>
+                      <button onClick={() => void action(() => copyProject(p))}>复制作品</button>
                     </div>
                   </article>
                 ))}
@@ -549,10 +593,33 @@ export function App() {
                   </button>
                 </div>
               </div>
+              <SourceCredit source={project.source} />
+              <div className="sharing-setting panel">
+                <label className="inline-check">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(project.allowRemix)}
+                    onChange={(e) => {
+                      const allow = e.target.checked;
+                      void action(async () => {
+                        await save(allow);
+                        setMessage('已保存改编设置，下次提交并展示后生效。');
+                      });
+                    }}
+                  />
+                  保存并允许同伴改编
+                </label>
+                <p>
+                  默认关闭。更改会联网保存当前草稿；已提交版本保持原设置。开启后同伴能复制展示版本继续创作，并标注你的来源。
+                </p>
+              </div>
               {history.present.schemaVersion === 2 ? (
                 <>
                   <div hidden={preview} inert={busy} aria-busy={busy}>
                     <AdventureEditor
+                      key={user!.id + ':' + project.id}
+                      userId={user!.id}
+                      onAssetBusy={setAssetBusy}
                       document={history.present}
                       onChange={(doc) => persist(changeHistory(history, doc))}
                       onUndo={() => persist(undoHistory(history))}
@@ -572,11 +639,16 @@ export function App() {
                     />
                   </div>
                   {preview && (
-                    <DocumentPlay key={project.id} document={history.present} from={previewFrom} />
+                    <DocumentPlay
+                      userId={user!.id}
+                      key={project.id}
+                      document={history.present}
+                      from={previewFrom}
+                    />
                   )}
                 </>
               ) : preview ? (
-                <DocumentPlay key={project.id} document={history.present} />
+                <DocumentPlay userId={user!.id} key={project.id} document={history.present} />
               ) : (
                 <div className="editor">
                   <aside className="panel">
@@ -662,22 +734,21 @@ export function App() {
                   {draftState} · {dirty ? '有尚未上传的修改' : '服务器修订 ' + project.revision}
                 </span>
                 <div className="row">
-                  <button onClick={() => download(history.present)}>导出当前草稿</button>
+                  <button
+                    onClick={() =>
+                      void action(async () =>
+                        download(await exportPortable(user!.id, history.present, project.source)),
+                      )
+                    }
+                  >
+                    导出当前草稿
+                  </button>
                   {invalidDraft !== undefined && (
                     <button onClick={() => download(invalidDraft.raw, 'unrecovered-draft.json')}>
                       导出未恢复草稿
                     </button>
                   )}
-                  <button
-                    onClick={() =>
-                      void action(() =>
-                        create({
-                          ...history.present,
-                          title: (history.present.title + ' 副本').slice(0, 60),
-                        }),
-                      )
-                    }
-                  >
+                  <button onClick={() => void action(() => copyProject(project, history.present))}>
                     另存副本
                   </button>
                   <button onClick={() => void action(loadServer)}>重新加载服务器版本</button>
@@ -719,6 +790,11 @@ export function App() {
                       <article className="note" key={f.id}>
                         <b>{f.authorName}</b>
                         <p>{f.text}</p>
+                        {f.location && (
+                          <button onClick={() => void action(() => showFeedbackLocation(f))}>
+                            查看反馈位置
+                          </button>
+                        )}
                         <small>
                           对应修订{' '}
                           {versions.find((v) => v.id === f.versionId)?.sourceRevision ??
@@ -743,6 +819,7 @@ export function App() {
                   <article className="card" key={v.id}>
                     <div className="cover">⚑ ✿ ◉</div>
                     <h2>{v.document.title}</h2>
+                    <SourceCredit source={v.source} />
                     <p>由 {v.authorName} 创作</p>
                     <button
                       className="primary"
@@ -768,7 +845,28 @@ export function App() {
                 <button onClick={() => void action(returnToEditor)}>返回编辑作品</button>
               )}
               <p>创作者：{playing.authorName}</p>
-              <DocumentPlay key={playing.id} document={playing.document} />
+              <SourceCredit source={playing.source} />
+              {playing.status === 'approved' && playing.allowRemix && (
+                <button
+                  onClick={() =>
+                    void action(async () =>
+                      openProject(
+                        await api<Project>('/versions/' + playing.id + '/remix', 'POST', {}),
+                      ),
+                    )
+                  }
+                >
+                  改编这个作品
+                </button>
+              )}
+              <DocumentPlay
+                userId={user!.id}
+                key={playing.id}
+                document={playing.document}
+                onLocation={(where) => {
+                  currentLocation.current = where;
+                }}
+              />
               {playing.status === 'approved' && (
                 <form
                   className="panel feedback-form"
@@ -776,7 +874,11 @@ export function App() {
                     const data = fields(e),
                       form = e.currentTarget;
                     void action(async () => {
-                      await api('/versions/' + playing.id + '/feedback', 'POST', data);
+                      await api('/versions/' + playing.id + '/feedback', 'POST', {
+                        ...data,
+                        ...(feedbackLocation ? { location: feedbackLocation } : {}),
+                      });
+                      setFeedbackLocation(undefined);
                       form.reset();
                       setMessage('反馈已送出，谢谢你的发现');
                     });
@@ -792,6 +894,35 @@ export function App() {
                       placeholder="我喜欢的设计是…… / 我遇到的困难是……"
                     />
                   </label>
+                  {playing.document.schemaVersion === 2 && (
+                    <div className="feedback-location">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (currentLocation.current)
+                            setFeedbackLocation({ ...currentLocation.current });
+                          else setError('请先进入游戏，在房间内选择要记录的位置。');
+                        }}
+                      >
+                        记录当前位置
+                      </button>
+                      {feedbackLocation && (
+                        <>
+                          <span>
+                            已记录：
+                            {
+                              playing.document.rooms.find((r) => r.id === feedbackLocation.roomId)
+                                ?.name
+                            }{' '}
+                            · 格 {feedbackLocation.x},{feedbackLocation.y}
+                          </span>
+                          <button type="button" onClick={() => setFeedbackLocation(undefined)}>
+                            不附带位置
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                   <button className="primary">送出反馈</button>
                 </form>
               )}
@@ -887,6 +1018,7 @@ export function App() {
                   <article className="review" key={v.id}>
                     <div>
                       <h3>{v.document.title}</h3>
+                      <SourceCredit source={v.source} />
                       <p>
                         {v.authorName} · 修订 {v.sourceRevision} · <b>{statusLabels[v.status]}</b>
                       </p>
@@ -957,6 +1089,11 @@ export function App() {
                         {f.authorName} → {f.title}
                       </b>
                       <p>{f.text}</p>
+                      {f.location && (
+                        <button onClick={() => void action(() => showFeedbackLocation(f))}>
+                          查看反馈位置
+                        </button>
+                      )}
                     </div>
                     <button
                       onClick={() =>

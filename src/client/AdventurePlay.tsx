@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AdventureDocument, Location } from '../shared/adventure/document.js';
+import { useAssetUrls } from './assets.js';
 import type { GameControls } from './adventure/renderer.js';
 import type { GameFrame } from './adventure/view.js';
 const GAME_KEYS = new Set([
@@ -27,10 +28,17 @@ function preference(key: string, fallback: boolean) {
 export function AdventurePlay({
   document: doc,
   from,
+  userId = '',
+  onLocation,
 }: {
   document: AdventureDocument;
   from?: Location;
+  userId?: string;
+  onLocation?: (location: Location | null) => void;
 }) {
+  const assets = useAssetUrls(doc, userId);
+  const reportLocation = useRef(onLocation);
+  reportLocation.current = onLocation;
   const canvas = useRef<HTMLDivElement>(null),
     surface = useRef<HTMLElement>(null),
     controls = useRef<GameControls>(null);
@@ -46,14 +54,25 @@ export function AdventurePlay({
     setFrame(undefined);
     setError('');
     setPaused(true);
+    if (!assets.ready) return;
     import('./adventure/renderer.js')
       .then(({ mountAdventure }) => {
         if (cancelled || !canvas.current) return;
         controls.current = mountAdventure(canvas.current, doc, {
+          assetUrls: assets.urls,
           assist,
           from,
           onFrame: (f) => {
-            if (!cancelled) setFrame(f);
+            if (!cancelled) {
+              setFrame(f);
+              const x = Math.floor(f.hero.x),
+                y = Math.ceil(f.hero.y) - 1;
+              reportLocation.current?.(
+                x >= 0 && y >= 0 && x < f.room.width && y < f.room.height
+                  ? { roomId: f.room.id, x, y }
+                  : null,
+              );
+            }
           },
           onError: (e) => {
             if (!cancelled) setError(e);
@@ -69,7 +88,7 @@ export function AdventurePlay({
       controls.current?.destroy();
       controls.current = null;
     };
-  }, [doc, from, assist]);
+  }, [doc, from, assist, assets.ready, assets.urls]);
   useEffect(() => {
     const pause = () => {
       controls.current?.pause(true);
@@ -156,7 +175,7 @@ export function AdventurePlay({
         }}
       >
         <div className="phaser-host" ref={canvas} aria-label="游戏画面" />
-        {!frame && !error && (
+        {!frame && !error && !assets.error && (
           <div className="game-overlay">
             <p>正在打开小世界…</p>
           </div>
@@ -198,9 +217,10 @@ export function AdventurePlay({
           </div>
         )}
       </div>
-      {error && (
+      {assets.warning && <p role="status">{assets.warning}</p>}
+      {(error || assets.error) && (
         <p role="alert" className="error">
-          {error}
+          {error || assets.error}
         </p>
       )}
       <div className="game-hud">

@@ -1,3 +1,5 @@
+import type { Location } from '../shared/adventure/document.js';
+import type { SourceCredit } from '../shared/portable.js';
 import type { CreativeDocument as GameDocument } from '../shared/creative.js';
 export interface User {
   id: string;
@@ -7,6 +9,8 @@ export interface User {
   active: boolean;
 }
 export interface Project {
+  allowRemix?: boolean;
+  source?: SourceCredit | null;
   id: string;
   ownerId: string;
   revision: number;
@@ -14,6 +18,8 @@ export interface Project {
   document: GameDocument;
 }
 export interface Version {
+  allowRemix?: boolean;
+  source?: SourceCredit | null;
   id: string;
   projectId: string;
   sourceRevision: number;
@@ -23,6 +29,7 @@ export interface Version {
   authorName: string;
 }
 export interface Feedback {
+  location?: Location | null;
   id: string;
   versionId: string;
   text: string;

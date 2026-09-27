@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import {
   BUILTIN_SKINS,
+  assetReferences,
   type AdventureDocument,
   type Location,
 } from '../../shared/adventure/document.js';
@@ -12,6 +13,7 @@ import {
 } from '../../shared/adventure/platform.js';
 import { startStory, storyAction, type StoryAction } from '../../shared/adventure/story.js';
 import { framePlatform, frameStory, keyboardDirection, type GameFrame } from './view.js';
+import { composeCharacter } from '../character.js';
 import { GameAudio } from './audio.js';
 const TILE = 48;
 const TEXTURES = [
@@ -54,6 +56,7 @@ export function mountAdventure(
   parent: HTMLElement,
   document: AdventureDocument,
   options: {
+    assetUrls?: Record<string, string>;
     assist?: boolean;
     from?: Location;
     onFrame: (frame: GameFrame) => void;
@@ -92,9 +95,19 @@ export function mountAdventure(
     preload() {
       for (const name of new Set(TEXTURES))
         this.load.svg(name, '/art/storybook-v1/' + name + '.svg');
+      for (const id of assetReferences(document))
+        this.load.image(
+          'asset:' + id,
+          options.assetUrls?.[id] ?? '/api/assets/' + encodeURIComponent(id),
+        );
       this.load.on('loaderror', () => options.onError('画面素材加载失败，请刷新后再试。'));
     }
     create() {
+      const original = this.textures.get(document.hero.skin).getSourceImage() as HTMLImageElement;
+      this.textures.addCanvas(
+        'hero-customized',
+        composeCharacter(original, document.hero.tint, document.hero.accessory),
+      );
       ready = true;
       this.add
         .image(480, 288, 'background')
@@ -106,7 +119,7 @@ export function mountAdventure(
       this.halo = this.add.ellipse(0, 0, 38, 14, 0xffe9a4, 0.28).setDepth(1);
       this.shadow = this.add.ellipse(0, 0, 28, 8, 0x294c43, 0.2);
       this.hero = this.add
-        .image(0, 0, document.hero.skin)
+        .image(0, 0, 'hero-customized')
         .setOrigin(0.5, 1)
         .setDisplaySize(40, 50)
         .setDepth(5);
@@ -198,6 +211,10 @@ export function mountAdventure(
           .setVisible(o.visible)
           .setDisplaySize(o.width * TILE, o.height * TILE)
           .setDepth(o.depth);
+        if (o.texture.startsWith('asset:')) {
+          const size = Math.min(o.width, o.height) * TILE;
+          image.setDisplaySize(size, size);
+        }
         const float =
           motion && ['collectible', 'key', 'portal'].includes(o.texture)
             ? Math.sin(time / 400 + o.x) * 2.5
@@ -220,9 +237,7 @@ export function mountAdventure(
       this.hero
         .setFlipX(frame.hero.facing < 0)
         .setAngle(motion && moving ? Math.sin(time / 80) * 4 : 0);
-      this.hero
-        .setDisplaySize(frame.hero.airborne ? 37 : 40, frame.hero.airborne ? 53 : 50)
-        .setDepth(frame.mode === 'story' ? frame.hero.y + 3.5 : 5);
+      this.hero.setDisplaySize(40, 50).setDepth(frame.mode === 'story' ? frame.hero.y + 3.5 : 5);
       this.shadow.setPosition(this.hero.x, this.hero.y - 2).setDepth(this.hero.depth - 0.1);
       this.halo.setPosition(this.hero.x, this.hero.y - 2).setVisible(Boolean(frame.prompt));
       if (time >= reportAt) {

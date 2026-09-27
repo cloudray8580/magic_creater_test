@@ -33,3 +33,14 @@
 |B41b|对话卡、顺序、选择动作、默认页|C42|story-editor UT、story-editor-component UT、story-editor E2E|
 |B41c|any/all、跨房间来源、标记原子改名删除|C43|story-editor UT、story-editor-component UT|
 |B41d|三模板创作与同伴完整分享|C44|story-editor E2E、旧workflow/editor回归|
+
+## M5（frozen，D28，契约14-m5-contract.md，证据15-m5-verification.md）
+|ID|基线事实/分类|目标|契约|计划验证|
+|---|---|---|---|---|
+|B51a|asset语法无存储/归属，revised|受限图片、不可变BLOB和版本权限|C51|assets/server-assets UT|
+|B51b|导出仅文档、draft仅JSON，revised|含图移植、原子导入/离线字节缓存/恢复|C52|portable/cache/operations UT和E2E|
+|B51c|Canvas忽略tint、配件未实现，revised|画板/上传选图和可见配色配件|C53|图片与组件像素UT、双玩法E2E|
+|B52a|反馈已固定version，仅文字，revised|主动附位置和该版本地图|C54|server/组件/E2E|
+|B52b|无改编授权或来源，revised|主动允许、独立副本与直接来源|C54|server/组件/E2E|
+
+B56：同出口课堂登录限流，C56；12名真实账户同IP、单账号与总量阈值UT通过，反馈按用户限流。

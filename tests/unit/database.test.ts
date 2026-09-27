@@ -23,7 +23,7 @@ describe('C05 database initialization', () => {
           classroomName: '小组',
         }),
       ).rejects.toThrow();
-      expect(db.pragma('user_version', { simple: true })).toBe(2);
+      expect(db.pragma('user_version', { simple: true })).toBe(3);
       db.close();
       db = openDatabase(join(dir, 'app.sqlite'));
       expect(db.prepare('SELECT COUNT(*) AS n FROM users').get()).toEqual({ n: 1 });

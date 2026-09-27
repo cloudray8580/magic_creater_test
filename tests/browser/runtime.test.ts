@@ -96,3 +96,57 @@ describe('isolated browser runtime adapter, no application server or database', 
     expect(view.errors).toEqual([]);
   });
 });
+
+it('renders uploaded images and hero tint as actual Canvas pixels in both game modes', async () => {
+  for (const kind of ['cloud-post', 'forest-letter'] as const) {
+    host = document.createElement('div');
+    Object.assign(host.style, { width: '960px', height: '576px' });
+    document.body.append(host);
+    const image = document.createElement('canvas');
+    image.width = image.height = 256;
+    const ctx = image.getContext('2d')!;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 256, 256);
+    const white = image.toDataURL();
+    ctx.fillStyle = '#0000ff';
+    ctx.fillRect(0, 0, 256, 256);
+    const blue = image.toDataURL();
+    const doc = adventureTemplate(kind);
+    doc.hero = { skin: 'asset:hero-test', tint: '#ff0000', accessory: 'none' };
+    doc.rooms[0].objects.push({
+      id: 'personal-decoration',
+      kind: 'decoration',
+      x: 4,
+      y: kind === 'cloud-post' ? 12 : 7,
+      skin: 'asset:decor-test',
+      width: 2,
+      height: 1,
+    });
+    let ready = false;
+    const errors: string[] = [];
+    controls = mountAdventure(host, doc, {
+      assetUrls: { 'hero-test': white, 'decor-test': blue },
+      onFrame: () => {
+        ready = true;
+      },
+      onError: (e) => errors.push(e),
+    });
+    await expect.poll(() => ready).toBe(true);
+    await delay(100);
+    const canvas = host.querySelector('canvas')!;
+    const pixels = canvas.getContext('2d')!.getImageData(0, 0, 960, 576).data;
+    let red = 0,
+      blueCount = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      if (pixels[i] === 255 && pixels[i + 1] === 0 && pixels[i + 2] === 0) red++;
+      if (pixels[i] === 0 && pixels[i + 1] === 0 && pixels[i + 2] === 255) blueCount++;
+    }
+    expect(red).toBeGreaterThan(300);
+    expect(blueCount).toBeGreaterThan(300);
+    expect(errors).toEqual([]);
+    controls.destroy();
+    controls = undefined;
+    await delay(50);
+    host.remove();
+  }
+});

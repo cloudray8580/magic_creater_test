@@ -3,7 +3,17 @@ import { validateCreative, type CreativeDocument } from '../shared/creative.js';
 import type { Location } from '../shared/adventure/document.js';
 import { Play } from './Play.js';
 import { AdventurePlay } from './AdventurePlay.js';
-export function DocumentPlay({ document, from }: { document: CreativeDocument; from?: Location }) {
+export function DocumentPlay({
+  document,
+  from,
+  userId,
+  onLocation,
+}: {
+  document: CreativeDocument;
+  from?: Location;
+  userId?: string;
+  onLocation?: (location: Location | null) => void;
+}) {
   const playable = useMemo(
     () => (document.schemaVersion === 2 && from ? { ...document, start: from } : document),
     [document, from],
@@ -11,7 +21,7 @@ export function DocumentPlay({ document, from }: { document: CreativeDocument; f
   try {
     validateCreative(playable, true);
     return playable.schemaVersion === 2 ? (
-      <AdventurePlay document={playable} from={from} />
+      <AdventurePlay document={playable} from={from} userId={userId} onLocation={onLocation} />
     ) : (
       <Play document={playable} />
     );

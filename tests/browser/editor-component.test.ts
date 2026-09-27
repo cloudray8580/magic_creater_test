@@ -2,15 +2,18 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { act, createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { AdventureEditor } from '../../src/client/AdventureEditor.js';
+import { cacheAsset } from '../../src/client/assets.js';
 import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 import { createHistory, changeHistory, undoHistory, redoHistory } from '../../src/shared/game.js';
 let root: Root, host: HTMLDivElement;
 let latest = adventureTemplate();
+let initial = adventureTemplate();
 const preview = vi.fn();
 function Harness() {
-  const [h, set] = useState(() => createHistory(adventureTemplate()));
+  const [h, set] = useState(() => createHistory(initial));
   latest = h.present;
   return createElement(AdventureEditor, {
+    userId: 'editor-asset-tests',
     document: h.present,
     onChange: (doc) => set(changeHistory(h, doc)),
     onUndo: () => set(undoHistory(h)),
@@ -26,7 +29,8 @@ afterEach(async () => {
   vi.restoreAllMocks();
   preview.mockClear();
 });
-async function start() {
+async function start(preset = adventureTemplate()) {
+  initial = preset;
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   host = document.createElement('div');
   document.body.append(host);
@@ -305,4 +309,115 @@ it('selects and drags an object at the new position after committing its focused
   await pointer(canvas, 'pointerdown', 25, 13);
   await pointer(canvas, 'pointerup', 26, 13);
   expect(latest.rooms[0].objects.find((o) => o.id === moved.id)!.x).toBe(26);
+});
+
+it('keeps edits made while an image is uploading and uses the same composed hero preview', async () => {
+  const canvas = await start();
+  const image = document.createElement('canvas');
+  image.width = image.height = 16;
+  const c = image.getContext('2d')!;
+  c.fillStyle = '#ffffff';
+  c.fillRect(0, 0, 16, 16);
+  const asset = {
+    id: 'editor-personal-hero',
+    name: '我的画',
+    data: image.toDataURL().split(',')[1],
+  };
+  let resolveUpload: ((response: Response) => void) | undefined;
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+    if (String(input) === '/api/assets' && init?.method === 'POST')
+      return new Promise<Response>((r) => {
+        resolveUpload = r;
+      });
+    return new Response(JSON.stringify({ assets: [] }), {
+      headers: { 'content-type': 'application/json' },
+    });
+  });
+  await click('自己的图片与涂鸦');
+  await expect
+    .poll(() => host.querySelector('input[type=file]')?.closest('fieldset')?.disabled)
+    .toBe(false);
+  const input = host.querySelector('input[type=file]') as HTMLInputElement;
+  const blob = await new Promise<Blob>((r) => image.toBlob((b) => r(b!)));
+  const files = new DataTransfer();
+  files.items.add(new File([blob], 'hero.png', { type: 'image/png' }));
+  input.files = files.files;
+  await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+  await expect.poll(() => Boolean(resolveUpload)).toBe(true);
+  await field('作品名称', '等待图片时的新名字');
+  await field('主角色调', '#ff0000');
+  await field('主角配件', 'hat');
+  await click('地面');
+  await pointer(canvas, 'pointerdown', 0, 3);
+  await act(async () => {
+    resolveUpload!(
+      new Response(JSON.stringify(asset), { headers: { 'content-type': 'application/json' } }),
+    );
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  await expect.poll(() => latest.hero.skin).toBe('asset:' + asset.id);
+  await pointer(canvas, 'pointerup', 0, 3);
+  expect(latest.hero.skin).toBe('asset:' + asset.id);
+  expect(latest.rooms[0].tiles.some((t) => t.x === 0 && t.y === 3)).toBe(true);
+  expect(latest.title).toBe('等待图片时的新名字');
+  expect(latest.hero).toMatchObject({ tint: '#ff0000', accessory: 'hat' });
+  await expect
+    .poll(() => host.querySelector('img[alt="主角外观预览"]')?.getAttribute('src'))
+    .toMatch(/^data:image\/png/);
+  await click('恢复原图颜色');
+  expect(latest.hero.tint).toBe('#ffffff');
+  await click('撤销');
+  expect(latest.hero.tint).toBe('#ff0000');
+  await click('树');
+  await pointer(canvas, 'pointerdown', 4, 4);
+  await pointer(canvas, 'pointerup', 4, 4);
+  await click('选择 / 移动');
+  await pointer(canvas, 'pointerdown', 4, 4);
+  await pointer(canvas, 'pointerup', 4, 4);
+  vi.mocked(fetch).mockResolvedValue(
+    new Response(JSON.stringify({ assets: [{ ...asset, bytes: 100 }] }), {
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
+  await cacheAsset('editor-asset-tests', asset);
+  await click('自己的图片与涂鸦');
+  await expect.poll(() => host.querySelector('option[value="' + asset.id + '"]')).toBeTruthy();
+  await field('重用我的图片', asset.id);
+  const target = latest.rooms[0].objects.find((o) => o.x === 4 && o.y === 4)!;
+  expect(target.skin).toBe('asset:' + asset.id);
+  await expect
+    .poll(() =>
+      host.querySelector('g[data-object-id="' + target.id + '"] image')?.getAttribute('href'),
+    )
+    .toMatch(/^data:image\/png/);
+});
+
+it('rejects a seventeenth image for the hero without changing the valid draft', async () => {
+  const image = document.createElement('canvas');
+  image.width = image.height = 16;
+  const data = image.toDataURL().split(',')[1];
+  const doc = adventureTemplate();
+  for (let i = 0; i < 16; i++) {
+    const id = 'limit-' + i;
+    doc.rooms[0].objects.push({
+      id: 'decor-' + i,
+      kind: 'decoration',
+      x: i,
+      y: 1,
+      skin: 'asset:' + id,
+    });
+    await cacheAsset('editor-asset-tests', { id, name: '画' + i, data });
+  }
+  await start(doc);
+  const before = structuredClone(latest);
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    new Response(JSON.stringify({ assets: [{ id: 'extra', name: '另一张图片', bytes: 100 }] }), {
+      headers: { 'content-type': 'application/json' },
+    }),
+  );
+  await click('自己的图片与涂鸦');
+  await expect.poll(() => host.querySelector('option[value="extra"]')).toBeTruthy();
+  await field('重用我的图片', 'extra');
+  expect(latest).toEqual(before);
+  expect(host.querySelector('.personal-assets [role=status]')?.textContent).toMatch(/16|素材/);
 });

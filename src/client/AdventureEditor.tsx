@@ -1,3 +1,7 @@
+import { validateCreative } from '../shared/creative.js';
+import { AssetPanel } from './AssetPanel.js';
+import { HeroPreview } from './HeroPreview.js';
+import { useAssetUrls, imageUrl } from './assets.js';
 import { flushSync } from 'react-dom';
 import { updateDialoguePage } from '../shared/adventure/story-editor.js';
 import { NumberInput } from './EditorInputs.js';
@@ -98,6 +102,8 @@ function texture(tool: string) {
         : tool;
 }
 interface Props {
+  userId?: string;
+  onAssetBusy?: (busy: boolean) => void;
   document: AdventureDocument;
   onChange: (document: AdventureDocument) => void;
   onPreviewFrom: (from: Location) => void;
@@ -108,6 +114,8 @@ interface Props {
 }
 export function AdventureEditor({
   document: doc,
+  userId = '',
+  onAssetBusy,
   onChange,
   onPreviewFrom,
   onUndo,
@@ -115,6 +123,7 @@ export function AdventureEditor({
   canUndo,
   canRedo,
 }: Props) {
+  const assets = useAssetUrls(doc, userId);
   const [roomId, setRoomId] = useState(doc.rooms[0].id),
     [tool, setTool] = useState<PaintTool | 'select'>('select'),
     [layer, setLayer] = useState<EditLayer>('objects');
@@ -137,8 +146,25 @@ export function AdventureEditor({
   const current = draft ?? doc,
     room = current.rooms.find((r) => r.id === roomId) ?? current.rooms[0];
   const object = room.objects.find((o) => o.id === selected);
-  const latest = useRef({ doc, room });
-  latest.current = { doc, room };
+  const latest = useRef({ doc, room, onChange });
+  latest.current = { doc, room, onChange };
+  function chooseImage(skin: string, objectId?: string) {
+    const current = latest.current;
+    const apply = (document: AdventureDocument) =>
+      objectId
+        ? updateObject(document, objectId, { skin })
+        : (validateCreative({
+            ...document,
+            hero: { ...document.hero, skin },
+          }) as AdventureDocument);
+    const next = apply(current.doc);
+    const pending = stroke.current ? apply(stroke.current.next) : undefined;
+    current.onChange(next);
+    if (pending && stroke.current) {
+      stroke.current.next = pending;
+      setDraft(pending);
+    }
+  }
   function safely(work: () => void) {
     try {
       work();
@@ -507,8 +533,8 @@ export function AdventureEditor({
                   y={o.y * CELL}
                   width={(o.width ?? 1) * CELL}
                   height={(o.height ?? 1) * CELL}
-                  href={`/art/storybook-v1/${o.skin ?? texture(o.kind)}.svg`}
-                  preserveAspectRatio="none"
+                  href={imageUrl(o.skin ?? texture(o.kind), assets.urls)}
+                  preserveAspectRatio={o.skin?.startsWith('asset:') ? 'xMidYMax meet' : 'none'}
                 />
                 {o.required && (
                   <text
@@ -605,6 +631,7 @@ export function AdventureEditor({
             {cursor.x},{cursor.y}
           </span>
         </div>
+        {(assets.error || assets.warning) && <p role="alert">{assets.error || assets.warning}</p>}
         <p className="editor-help">
           拖动画笔连续铺设 · Alt＋拖动或鼠标中键平移 · 滚动条查看远处 · 在画布上 Ctrl/Cmd＋Z 撤销
         </p>
@@ -759,6 +786,14 @@ export function AdventureEditor({
                 />
               </label>
             )}
+            {userId && ['npc', 'decoration', 'collectible', 'key'].includes(object.kind) && (
+              <AssetPanel
+                key={userId + ':' + object.id}
+                userId={userId}
+                onBusyChange={onAssetBusy}
+                onChoose={(skin) => chooseImage(skin, object.id)}
+              />
+            )}
             {doc.gameType === 'story' && (
               <StoryObjectPanel
                 key={object.id}
@@ -831,6 +866,9 @@ export function AdventureEditor({
                 value={doc.hero.skin}
                 onChange={(e) => onChange({ ...doc, hero: { ...doc.hero, skin: e.target.value } })}
               >
+                {doc.hero.skin.startsWith('asset:') && (
+                  <option value={doc.hero.skin}>我的图片</option>
+                )}
                 {BUILTIN_SKINS.filter((s) => ['fox', 'cat', 'robot', 'bird'].includes(s)).map(
                   (s) => (
                     <option key={s} value={s}>
@@ -847,6 +885,45 @@ export function AdventureEditor({
                 )}
               </select>
             </label>
+            <HeroPreview url={imageUrl(doc.hero.skin, assets.urls)} hero={doc.hero} />
+            <label>
+              主角色调
+              <input
+                type="color"
+                value={doc.hero.tint}
+                onChange={(e) => onChange({ ...doc, hero: { ...doc.hero, tint: e.target.value } })}
+              />
+            </label>
+            <button onClick={() => onChange({ ...doc, hero: { ...doc.hero, tint: '#ffffff' } })}>
+              恢复原图颜色
+            </button>
+            <label>
+              主角配件
+              <select
+                value={doc.hero.accessory}
+                onChange={(e) =>
+                  onChange({
+                    ...doc,
+                    hero: {
+                      ...doc.hero,
+                      accessory: e.target.value as AdventureDocument['hero']['accessory'],
+                    },
+                  })
+                }
+              >
+                <option value="none">无</option>
+                <option value="scarf">围巾</option>
+                <option value="hat">帽子</option>
+              </select>
+            </label>
+            {userId && (
+              <AssetPanel
+                key={userId + ':hero'}
+                userId={userId}
+                onBusyChange={onAssetBusy}
+                onChoose={(skin) => chooseImage(skin)}
+              />
+            )}
             <div className="property-pair">
               <label>
                 地图宽度

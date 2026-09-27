@@ -17,6 +17,14 @@ const migrations = [
  CREATE TABLE feedback(id TEXT PRIMARY KEY,version_id TEXT NOT NULL REFERENCES versions(id),author_id TEXT NOT NULL REFERENCES users(id),text TEXT NOT NULL,hidden INTEGER NOT NULL DEFAULT 0 CHECK(hidden IN (0,1)),created_at INTEGER NOT NULL);
  CREATE INDEX feedback_version ON feedback(version_id,created_at);
 `,
+  `
+ CREATE TABLE assets(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id),name TEXT NOT NULL,digest TEXT NOT NULL,data BLOB NOT NULL,created_at INTEGER NOT NULL,UNIQUE(owner_id,digest));
+ ALTER TABLE projects ADD COLUMN source TEXT;
+ ALTER TABLE projects ADD COLUMN allow_remix INTEGER NOT NULL DEFAULT 0 CHECK(allow_remix IN (0,1));
+ ALTER TABLE versions ADD COLUMN source TEXT;
+ ALTER TABLE versions ADD COLUMN allow_remix INTEGER NOT NULL DEFAULT 0 CHECK(allow_remix IN (0,1));
+ ALTER TABLE feedback ADD COLUMN location TEXT;
+`,
 ];
 export function openDatabase(path: string): Db {
   if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true, mode: 0o700 });

@@ -4,6 +4,14 @@ import staticFiles from '@fastify/static';
 import rateLimit from '@fastify/rate-limit';
 import { randomUUID } from 'node:crypto';
 import { openDatabase } from './db.js';
+import {
+  normalizeImage,
+  storeImage,
+  requireOwnedAssets,
+  assetView,
+  type AssetRow,
+} from './assets.js';
+import { BUNDLE_BYTES, parsePortable, remapAssets, documentAssets } from '../shared/portable.js';
 import { hashPassword, verifyPassword, newSessionToken, tokenHash } from './auth.js';
 import { HttpError, bodyObject, text, username, password, revision } from './input.js';
 import { ValidationError } from '../shared/game.js';
@@ -32,6 +40,8 @@ interface ProjectRow {
   document: string;
   revision: number;
   updated_at: number;
+  source: string | null;
+  allow_remix: number;
 }
 function publicUser(u: UserRow) {
   return {
@@ -49,6 +59,8 @@ function projectView(p: ProjectRow) {
     revision: p.revision,
     updatedAt: p.updated_at,
     document: JSON.parse(p.document),
+    source: p.source ? JSON.parse(p.source) : null,
+    allowRemix: Boolean(p.allow_remix),
   };
 }
 function param(req: FastifyRequest, key = 'id') {
@@ -133,13 +145,24 @@ export async function createApp(options: AppOptions) {
     version: '0.1.0',
     database: db.pragma('user_version', { simple: true }),
   }));
+  const loginAccountLimit = app.createRateLimit({
+    max: 10,
+    timeWindow: '1 minute',
+    keyGenerator: (req) =>
+      req.ip + ':login:' + username(bodyObject(req.body, ['username', 'password']).username),
+  });
   app.post(
     '/api/login',
-    { config: { rateLimit: { max: 10, timeWindow: '1 minute' } } },
+    { config: { rateLimit: { max: 120, timeWindow: '1 minute' } } },
     async (req, reply) => {
       const body = bodyObject(req.body, ['username', 'password']),
         name = username(body.username),
         secret = text(body.password, '密码', 1, 128);
+      const limit = await loginAccountLimit(req);
+      if (!limit.isAllowed && limit.isExceeded) {
+        reply.header('Retry-After', limit.ttlInSeconds);
+        throw new HttpError(429, '这个账号尝试过于频繁，请一分钟后再试');
+      }
       const u = db.prepare('SELECT * FROM users WHERE username=? AND active=1').get(name) as
         UserRow | undefined;
       if (!u || !(await verifyPassword(secret, u.password_hash)))
@@ -236,6 +259,95 @@ export async function createApp(options: AppOptions) {
     })();
     return { ok: true };
   });
+  app.post(
+    '/api/assets',
+    {
+      bodyLimit: 3 * 1024 * 1024,
+      config: {
+        rateLimit: {
+          max: 12,
+          timeWindow: '1 minute',
+          keyGenerator: (req: FastifyRequest) => currentUser(req).id,
+        },
+      },
+    },
+    async (req, reply) => {
+      currentUser(req);
+      const b = bodyObject(req.body, ['name', 'data']),
+        name = text(b.name, '素材名称', 1, 40);
+      const data = await normalizeImage(b.data),
+        u = currentUser(req);
+      const asset = db.transaction(() => storeImage(db, u.id, name, data))();
+      reply.code(201);
+      return { ...assetView(asset), data: asset.data.toString('base64') };
+    },
+  );
+  app.get('/api/assets', async (req) => {
+    const u = currentUser(req);
+    return {
+      assets: db
+        .prepare(
+          'SELECT id,name,length(data) AS bytes,created_at AS createdAt FROM assets WHERE owner_id=? ORDER BY created_at DESC,id',
+        )
+        .all(u.id),
+    };
+  });
+  app.get('/api/assets/:id', async (req, reply) => {
+    const u = currentUser(req),
+      id = param(req);
+    const asset = db.prepare('SELECT * FROM assets WHERE id=?').get(id) as AssetRow | undefined;
+    if (!asset) throw new HttpError(404, '素材不存在或不可访问');
+    if (asset.owner_id !== u.id) {
+      const visible = db
+        .prepare(
+          "SELECT v.document FROM versions v JOIN projects p ON p.id=v.project_id WHERE p.classroom_id=? AND (v.status='approved' OR ?='teacher')",
+        )
+        .all(u.classroom_id, u.role) as { document: string }[];
+      if (!visible.some((v) => documentAssets(JSON.parse(v.document)).includes(id)))
+        throw new HttpError(404, '素材不存在或不可访问');
+    }
+    return reply.type('image/png').send(asset.data);
+  });
+  app.post(
+    '/api/projects/import',
+    {
+      bodyLimit: BUNDLE_BYTES + 1024,
+      config: {
+        rateLimit: {
+          max: 12,
+          timeWindow: '1 minute',
+          keyGenerator: (req: FastifyRequest) => currentUser(req).id,
+        },
+      },
+    },
+    async (req, reply) => {
+      currentUser(req);
+      const b = bodyObject(req.body, ['bundle']),
+        bundle = parsePortable(b.bundle);
+      const images: { id: string; name: string; data: Buffer }[] = [];
+      for (const a of bundle.assets) images.push({ ...a, data: await normalizeImage(a.data) });
+      const u = currentUser(req),
+        id = randomUUID();
+      const project = db.transaction(() => {
+        const ids = new Map(images.map((a) => [a.id, storeImage(db, u.id, a.name, a.data).id]));
+        const document = remapAssets(bundle.document, ids);
+        requireOwnedAssets(db, u.id, document);
+        db.prepare(
+          'INSERT INTO projects(id,owner_id,classroom_id,document,revision,updated_at,source) VALUES (?,?,?,?,1,?,?)',
+        ).run(
+          id,
+          u.id,
+          u.classroom_id,
+          JSON.stringify(document),
+          Date.now(),
+          bundle.source ? JSON.stringify(bundle.source) : null,
+        );
+        return db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow;
+      })();
+      reply.code(201);
+      return projectView(project);
+    },
+  );
   app.get('/api/projects', async (req) => {
     const u = currentUser(req);
     return {
@@ -253,6 +365,7 @@ export async function createApp(options: AppOptions) {
       b = bodyObject(req.body, ['document']),
       document = validateDocument(b.document),
       id = randomUUID();
+    requireOwnedAssets(db, u.id, document);
     db.prepare(
       'INSERT INTO projects(id,owner_id,classroom_id,document,revision,updated_at) VALUES (?,?,?,?,1,?)',
     ).run(id, u.id, u.classroom_id, JSON.stringify(document), Date.now());
@@ -262,20 +375,41 @@ export async function createApp(options: AppOptions) {
   app.get('/api/projects/:id', async (req) => projectView(ownedProject(req)));
   app.put('/api/projects/:id', async (req) => {
     const p = ownedProject(req),
-      b = bodyObject(req.body, ['document', 'revision']),
+      b = bodyObject(req.body, ['document', 'revision', 'allowRemix']),
       expected = revision(b.revision),
       document = validateDocument(b.document);
+    requireOwnedAssets(db, p.owner_id, document);
+    if (b.allowRemix !== undefined && typeof b.allowRemix !== 'boolean')
+      throw new HttpError(400, '改编设置无效');
+    const allowRemix = b.allowRemix === undefined ? p.allow_remix : Number(b.allowRemix);
     const changes = db
       .prepare(
-        'UPDATE projects SET document=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?',
+        'UPDATE projects SET document=?,allow_remix=?,revision=revision+1,updated_at=? WHERE id=? AND revision=?',
       )
-      .run(JSON.stringify(document), Date.now(), p.id, expected).changes;
+      .run(JSON.stringify(document), allowRemix, Date.now(), p.id, expected).changes;
     if (changes !== 1)
       throw new HttpError(
         409,
         '其他页面已保存了新版本；你的本地草稿仍然保留，请重新加载或另存副本',
       );
     return projectView(db.prepare('SELECT * FROM projects WHERE id=?').get(p.id) as ProjectRow);
+  });
+
+  app.post('/api/projects/:id/copy', async (req, reply) => {
+    const p = ownedProject(req),
+      b = bodyObject(req.body, ['document']);
+    const document = validateDocument(
+      b.document === undefined ? JSON.parse(p.document) : b.document,
+    );
+    requireOwnedAssets(db, p.owner_id, document);
+    document.title = (document.title + ' 副本').slice(0, 60);
+    validateDocument(document);
+    const id = randomUUID();
+    db.prepare(
+      'INSERT INTO projects(id,owner_id,classroom_id,document,updated_at,source) VALUES (?,?,?,?,?,?)',
+    ).run(id, p.owner_id, p.classroom_id, JSON.stringify(document), Date.now(), p.source);
+    reply.code(201);
+    return projectView(db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow);
   });
 
   interface VersionRow {
@@ -289,6 +423,8 @@ export async function createApp(options: AppOptions) {
     owner_id: string;
     classroom_id: string;
     author_name: string;
+    source: string | null;
+    allow_remix: number;
   }
   const versionSelect =
     'SELECT v.*,p.owner_id,p.classroom_id,u.display_name AS author_name FROM versions v JOIN projects p ON p.id=v.project_id JOIN users u ON u.id=p.owner_id';
@@ -302,6 +438,8 @@ export async function createApp(options: AppOptions) {
       reviewNote: v.review_note,
       createdAt: v.created_at,
       authorName: v.author_name,
+      source: v.source ? JSON.parse(v.source) : null,
+      allowRemix: Boolean(v.allow_remix),
     };
   }
   function versionRow(id: string, u: UserRow, approvedOnly = false) {
@@ -322,16 +460,50 @@ export async function createApp(options: AppOptions) {
       b = bodyObject(req.body, ['revision']);
     if (revision(b.revision) !== p.revision)
       throw new HttpError(409, '作品已更新，请保存当前草稿后再提交');
-    validateDocument(JSON.parse(p.document), true);
+    const document = validateDocument(JSON.parse(p.document), true);
+    requireOwnedAssets(db, p.owner_id, document);
     const previous = db
       .prepare('SELECT id FROM versions WHERE project_id=? AND source_revision=?')
       .get(p.id, p.revision) as { id: string } | undefined;
     const id = previous?.id ?? randomUUID();
     if (!previous)
       db.prepare(
-        "INSERT INTO versions(id,project_id,source_revision,document,status,created_at) VALUES (?,?,?,?,'pending',?)",
-      ).run(id, p.id, p.revision, p.document, Date.now());
+        "INSERT INTO versions(id,project_id,source_revision,document,status,created_at,source,allow_remix) VALUES (?,?,?,?,'pending',?,?,?)",
+      ).run(id, p.id, p.revision, p.document, Date.now(), p.source, p.allow_remix);
     return versionView(versionRow(id, currentUser(req)));
+  });
+  app.post('/api/versions/:id/remix', async (req, reply) => {
+    const u = currentUser(req),
+      v = versionRow(param(req), u, true);
+    bodyObject(req.body, []);
+    if (!v.allow_remix) throw new HttpError(403, '创作者没有允许改编这个版本');
+    const original = validateDocument(JSON.parse(v.document)),
+      id = randomUUID();
+    const project = db.transaction(() => {
+      const ids = new Map<string, string>();
+      for (const assetId of documentAssets(original)) {
+        const asset = db
+          .prepare('SELECT * FROM assets WHERE id=? AND owner_id=?')
+          .get(assetId, v.owner_id) as AssetRow | undefined;
+        if (!asset) throw new HttpError(400, '原作素材暂时无法复制');
+        ids.set(assetId, storeImage(db, u.id, asset.name, asset.data).id);
+      }
+      const document = remapAssets(original, ids);
+      document.title = (document.title + ' 改编').slice(0, 60);
+      validateDocument(document);
+      const source = {
+        versionId: v.id,
+        title: original.title,
+        authorName: v.author_name,
+        verified: true,
+      };
+      db.prepare(
+        'INSERT INTO projects(id,owner_id,classroom_id,document,updated_at,source) VALUES (?,?,?,?,?,?)',
+      ).run(id, u.id, u.classroom_id, JSON.stringify(document), Date.now(), JSON.stringify(source));
+      return db.prepare('SELECT * FROM projects WHERE id=?').get(id) as ProjectRow;
+    })();
+    reply.code(201);
+    return projectView(project);
   });
   app.get('/api/projects/:id/versions', async (req) => {
     const p = ownedProject(req);
@@ -401,6 +573,7 @@ export async function createApp(options: AppOptions) {
     created_at: number;
     author_name: string;
     title: string;
+    location: string | null;
   }
   const feedbackSelect =
     'SELECT f.*,u.display_name AS author_name,v.document AS title FROM feedback f JOIN versions v ON v.id=f.version_id JOIN projects p ON p.id=v.project_id JOIN users u ON u.id=f.author_id';
@@ -413,20 +586,49 @@ export async function createApp(options: AppOptions) {
       createdAt: f.created_at,
       authorName: f.author_name,
       title: JSON.parse(f.title).title,
+      location: f.location ? JSON.parse(f.location) : null,
     };
   }
   app.post(
     '/api/versions/:id/feedback',
-    { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } },
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '1 minute',
+          keyGenerator: (req: FastifyRequest) => currentUser(req).id,
+        },
+      },
+    },
     async (req, reply) => {
       const u = currentUser(req),
         v = versionRow(param(req), u, true),
-        b = bodyObject(req.body, ['text']),
+        b = bodyObject(req.body, ['text', 'location']),
         message = text(b.text, '反馈', 1, 1000),
         id = randomUUID();
+      let location = null;
+      if (b.location !== undefined && b.location !== null) {
+        const value = bodyObject(b.location, ['roomId', 'x', 'y']);
+        const document = validateDocument(JSON.parse(v.document));
+        const room =
+          document.schemaVersion === 2
+            ? document.rooms.find((r) => r.id === value.roomId)
+            : undefined;
+        if (
+          !room ||
+          !Number.isSafeInteger(value.x) ||
+          !Number.isSafeInteger(value.y) ||
+          (value.x as number) < 0 ||
+          (value.y as number) < 0 ||
+          (value.x as number) >= room.width ||
+          (value.y as number) >= room.height
+        )
+          throw new HttpError(400, '反馈位置不在这个版本的房间范围内');
+        location = JSON.stringify({ roomId: room.id, x: value.x, y: value.y });
+      }
       db.prepare(
-        'INSERT INTO feedback(id,version_id,author_id,text,created_at) VALUES (?,?,?,?,?)',
-      ).run(id, v.id, u.id, message, Date.now());
+        'INSERT INTO feedback(id,version_id,author_id,text,created_at,location) VALUES (?,?,?,?,?,?)',
+      ).run(id, v.id, u.id, message, Date.now(), location);
       reply.code(201);
       return feedbackView(db.prepare(feedbackSelect + ' WHERE f.id=?').get(id) as FeedbackRow);
     },

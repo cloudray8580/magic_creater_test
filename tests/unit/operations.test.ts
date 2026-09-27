@@ -1,3 +1,6 @@
+import sharp from 'sharp';
+import { createApp } from '../../src/server/app.js';
+import { adventureTemplate } from '../../src/shared/adventure/templates.js';
 import Database from 'better-sqlite3';
 import { it, expect } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -142,6 +145,138 @@ it('backs up an older schema without migrating or modifying its source', async (
       db.close();
     }
   } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it('restores image bytes, references, frozen versions and file attribution from a live WAL backup', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'magic-images-')),
+    source = join(dir, 'source.sqlite'),
+    copy = join(dir, 'backup.sqlite');
+  const origin = 'http://127.0.0.1';
+  let live: Awaited<ReturnType<typeof createApp>> | undefined,
+    restored: Awaited<ReturnType<typeof createApp>> | undefined;
+  try {
+    live = await createApp({ databasePath: source, origins: [origin] });
+    await bootstrapForImage();
+    async function bootstrapForImage() {
+      await runBootstrap({ APP_DATABASE: source, BOOTSTRAP_PASSWORD: 'test-password-123' });
+    }
+    const login = await live.app.inject({
+      method: 'POST',
+      url: '/api/login',
+      headers: { origin },
+      payload: { username: 'teacher', password: 'test-password-123' },
+    });
+    const headers = { origin, cookie: String(login.headers['set-cookie']).split(';')[0] };
+    const raw = await sharp({ create: { width: 6, height: 4, channels: 4, background: '#ab3456' } })
+      .png()
+      .toBuffer();
+    const uploaded = await live.app.inject({
+      method: 'POST',
+      url: '/api/assets',
+      headers,
+      payload: { name: 'restore character', data: raw.toString('base64') },
+    });
+    expect(uploaded.statusCode).toBe(201);
+    const a = uploaded.json();
+    const document = adventureTemplate('forest-letter');
+    document.hero.skin = 'asset:' + a.id;
+    const project = await live.app.inject({
+      method: 'POST',
+      url: '/api/projects/import',
+      headers,
+      payload: {
+        bundle: {
+          format: 'magic-creater-bundle',
+          bundleVersion: 1,
+          document,
+          assets: [{ id: a.id, name: a.name, data: a.data }],
+          source: { versionId: 'prior', title: '原作品', authorName: '同学', verified: true },
+        },
+      },
+    });
+    expect(project.statusCode).toBe(201);
+    const p = project.json();
+    expect(
+      (
+        await live.app.inject({
+          method: 'PUT',
+          url: '/api/projects/' + p.id,
+          headers,
+          payload: { document: p.document, revision: 1, allowRemix: true },
+        })
+      ).statusCode,
+    ).toBe(200);
+    const submitted = await live.app.inject({
+      method: 'POST',
+      url: '/api/projects/' + p.id + '/submit',
+      headers,
+      payload: { revision: 2 },
+    });
+    expect(submitted.statusCode).toBe(200);
+    const v = submitted.json();
+    await live.app.inject({
+      method: 'PATCH',
+      url: '/api/versions/' + v.id,
+      headers,
+      payload: { status: 'approved' },
+    });
+    await live.app.inject({
+      method: 'POST',
+      url: '/api/versions/' + v.id + '/feedback',
+      headers,
+      payload: { text: '这张图恢复后还在', location: { roomId: 'garden', x: 3, y: 8 } },
+    });
+    const remixed = await live.app.inject({
+      method: 'POST',
+      url: '/api/versions/' + v.id + '/remix',
+      headers,
+      payload: {},
+    });
+    expect(remixed.statusCode).toBe(201);
+    const remix = remixed.json();
+    await backupDatabase(source, copy);
+    await live.app.inject({
+      method: 'PATCH',
+      url: '/api/versions/' + v.id,
+      headers,
+      payload: { status: 'withdrawn' },
+    });
+    restored = await createApp({ databasePath: copy, origins: [origin] });
+    expect(restored.db.pragma('integrity_check', { simple: true })).toBe('ok');
+    expect(restored.db.pragma('foreign_key_check')).toEqual([]);
+    const image = await restored.app.inject({ url: '/api/assets/' + a.id, headers });
+    expect(image.statusCode).toBe(200);
+    expect(image.rawPayload).toEqual(Buffer.from(a.data, 'base64'));
+    const result = (await restored.app.inject({ url: '/api/projects/' + p.id, headers })).json();
+    expect(result.document.hero.skin).toBe('asset:' + a.id);
+    expect(result.source).toMatchObject({ title: '原作品', verified: false });
+    expect(result.allowRemix).toBe(true);
+    const recoveredRemix = (
+      await restored.app.inject({ url: '/api/projects/' + remix.id, headers })
+    ).json();
+    expect(recoveredRemix.source).toEqual(remix.source);
+    expect(recoveredRemix.source.verified).toBe(true);
+    const recoveredVersion = (
+      await restored.app.inject({ url: '/api/versions/' + v.id, headers })
+    ).json();
+    expect(recoveredVersion.source).toEqual(result.source);
+    expect(recoveredVersion.allowRemix).toBe(true);
+    const recoveredFeedback = (
+      await restored.app.inject({ url: '/api/projects/' + p.id + '/feedback', headers })
+    ).json().feedback[0];
+    expect(recoveredFeedback.location).toEqual({ roomId: 'garden', x: 3, y: 8 });
+    expect(
+      (await restored.app.inject({ url: '/api/versions/' + v.id, headers })).json().status,
+    ).toBe('approved');
+    expect(
+      (await restored.app.inject({ url: '/api/projects/' + p.id + '/feedback', headers })).json()
+        .feedback[0].text,
+    ).toBe('这张图恢复后还在');
+  } finally {
+    await restored?.app.close();
+    await live?.app.close();
     rmSync(dir, { recursive: true, force: true });
   }
 });

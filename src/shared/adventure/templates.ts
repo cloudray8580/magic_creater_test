@@ -69,7 +69,7 @@ export function adventureTemplate(id: TemplateId = 'cloud-post'): AdventureDocum
     description: info.description,
     theme: id === 'secret-home' ? 'cottage' : id === 'rooftop-secret' ? 'dusk' : 'forest',
     music: id === 'rooftop-secret' || id === 'secret-home' ? 'night' : 'meadow',
-    hero: { skin: 'fox', tint: '#ef9565', accessory: 'scarf' },
+    hero: { skin: 'fox', tint: '#ffffff', accessory: 'scarf' },
     flags: [],
     rooms: [],
     start: null,

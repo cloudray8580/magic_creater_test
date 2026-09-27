@@ -445,3 +445,29 @@ describe('C31 new document API dispatch', () => {
     }
   });
 });
+
+it('allows a classroom sharing one address to log in while retaining per-account and total limits', async () => {
+  for (let i = 0; i < 12; i++) {
+    ctx.db
+      .prepare(
+        "INSERT INTO users SELECT ?,classroom_id,?,display_name,role,password_hash,active FROM users WHERE username='alice'",
+      )
+      .run('burst-' + i, 'burst-' + i);
+    expect(
+      (await request('POST', '/api/login', '', { username: 'burst-' + i, password })).statusCode,
+    ).toBe(200);
+  }
+  for (let i = 0; i < 10; i++)
+    await request('POST', '/api/login', '', { username: 'alice', password: 'incorrect-password' });
+  expect(
+    (await request('POST', '/api/login', '', { username: 'alice', password })).statusCode,
+  ).toBe(429);
+  expect((await request('POST', '/api/login', '', { username: 'bob', password })).statusCode).toBe(
+    200,
+  );
+  let last = 0;
+  for (let i = 0; i < 125; i++)
+    last = (await request('POST', '/api/login', '', { username: 'unknown-' + i, password }))
+      .statusCode;
+  expect(last).toBe(429);
+});

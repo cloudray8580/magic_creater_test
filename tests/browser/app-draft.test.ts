@@ -156,3 +156,87 @@ it('exports a large valid map within the same byte limit accepted by import', as
   expect(saved!.size).toBeLessThanOrEqual(256 * 1024);
   expect(JSON.parse(await saved!.text())).toEqual(doc);
 });
+
+it('imports raw and portable files through the atomic import endpoint', async () => {
+  await start();
+  await click('我的作品');
+  const doc = adventureTemplate();
+  doc.title = '从文件来的世界';
+  const original = mock.api.getMockImplementation()!;
+  mock.api.mockImplementation(async (url, method, body) =>
+    url === '/projects/import'
+      ? { ...project, id: 'imported', document: doc }
+      : original(url, method, body),
+  );
+  const files = new DataTransfer();
+  files.items.add(new File([JSON.stringify(doc)], 'world.json', { type: 'application/json' }));
+  const input = host.querySelector('input[type=file]') as HTMLInputElement;
+  input.files = files.files;
+  await act(async () => {
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 30));
+  });
+  await expect.poll(() => mock.api.mock.calls.some((c) => c[0] === '/projects/import')).toBe(true);
+  expect(mock.api).toHaveBeenCalledWith('/projects/import', 'POST', { bundle: doc });
+  await expect.poll(() => host.textContent).toContain('从文件来的世界');
+});
+
+it('keeps saving and image upload from racing while allowing the upload to finish into the draft', async () => {
+  await start();
+  const original = mock.api.getMockImplementation()!;
+  let finish: ((asset: unknown) => void) | undefined;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 16;
+  const asset = {
+    id: 'app-upload-image',
+    name: '我的图片',
+    data: canvas.toDataURL().split(',')[1],
+  };
+  mock.api.mockImplementation(async (url, method, body) => {
+    if (url === '/assets')
+      return method === 'POST'
+        ? new Promise((r) => {
+            finish = r;
+          })
+        : { assets: [] };
+    return original(url, method, body);
+  });
+  await click('自己的图片与涂鸦');
+  const input = host.querySelector('input[type=file]') as HTMLInputElement;
+  const files = new DataTransfer();
+  files.items.add(new File(['testimage'], 'art.png', { type: 'image/png' }));
+  input.files = files.files;
+  await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })));
+  await expect.poll(() => Boolean(finish)).toBe(true);
+  const toggle = Array.from(host.querySelectorAll('button')).find(
+    (b) => b.textContent === '自己的图片与涂鸦',
+  )!;
+  expect(toggle.disabled).toBe(true);
+  await act(async () => {
+    toggle.click();
+    toggle.click();
+  });
+  expect(mock.api.mock.calls.filter((c) => c[0] === '/assets' && c[1] !== 'POST')).toHaveLength(1);
+  await click('保存到服务器');
+  expect(mock.api.mock.calls.some((c) => c[1] === 'PUT')).toBe(false);
+  expect(host.textContent).toContain('图片正在处理');
+  await act(async () => {
+    finish!(asset);
+    await new Promise((r) => setTimeout(r, 50));
+  });
+  await expect
+    .poll(() =>
+      Array.from(host.querySelectorAll('select')).some((s) => s.value === 'asset:' + asset.id),
+    )
+    .toBe(true);
+  await click('保存到服务器');
+  expect(mock.api).toHaveBeenCalledWith(
+    '/projects/p',
+    'PUT',
+    expect.objectContaining({
+      document: expect.objectContaining({
+        hero: expect.objectContaining({ skin: 'asset:' + asset.id }),
+      }),
+    }),
+  );
+});
