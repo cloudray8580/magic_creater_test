@@ -154,7 +154,7 @@ try {
       await cell(14, 8);
       await page.getByRole('button', { name: '雪球 · 1 个' }).click();
       await cell(16, 8);
-      await page.locator('.snow-map-wrap').scrollIntoViewIfNeeded();
+      await page.locator('.snow-game .snow-map-wrap').scrollIntoViewIfNeeded();
     });
     await cue('雪球补充体积；经过不同帽子会按顺序叠高，胡萝卜也会戴上', 14, async () => {
       await page.getByRole('heading', { name: '雪人平安到家了！' }).waitFor({ timeout: 17000 });
