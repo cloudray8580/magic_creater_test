@@ -1,3 +1,6 @@
+import { SnowmanPlay } from './SnowmanPlay.js';
+import type { SnowmanDocument } from '../shared/snowman/document.js';
+import type { TimedAction } from '../shared/snowman/engine.js';
 import { useMemo } from 'react';
 import { validateCreative, type CreativeDocument } from '../shared/creative.js';
 import type { Location } from '../shared/adventure/document.js';
@@ -8,7 +11,9 @@ export function DocumentPlay({
   from,
   userId,
   onLocation,
+  onSnowWin,
 }: {
+  onSnowWin?: (actions: TimedAction[]) => void;
   document: CreativeDocument;
   from?: Location;
   userId?: string;
@@ -19,8 +24,14 @@ export function DocumentPlay({
     [document, from],
   );
   try {
-    validateCreative(playable, true);
-    return playable.schemaVersion === 2 ? (
+    const validated = validateCreative(playable, true);
+    return playable.schemaVersion === 3 ? (
+      <SnowmanPlay
+        key={JSON.stringify(validated)}
+        document={validated as SnowmanDocument}
+        onWin={onSnowWin}
+      />
+    ) : playable.schemaVersion === 2 ? (
       <AdventurePlay document={playable} from={from} userId={userId} onLocation={onLocation} />
     ) : (
       <Play document={playable} />

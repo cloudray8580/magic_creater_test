@@ -1,16 +1,20 @@
+import { validateSnowman, type SnowmanDocument } from './snowman/document.js';
 import { LIMITS, validateDocument, ValidationError, type GameDocument } from './game.js';
 import {
   validateAdventure,
   AdventureValidationError,
   type AdventureDocument,
 } from './adventure/document.js';
-export type CreativeDocument = GameDocument | AdventureDocument;
+export type CreativeDocument = GameDocument | AdventureDocument | SnowmanDocument;
 export const DOCUMENT_BYTES = 1024 * 1024;
 export function validateCreative(value: AdventureDocument, playable?: boolean): AdventureDocument;
 export function validateCreative(value: unknown, playable?: boolean): CreativeDocument;
 export function validateCreative(value: unknown, playable = false): CreativeDocument {
   const adventure = Boolean(
-    value && typeof value === 'object' && 'schemaVersion' in value && value.schemaVersion === 2,
+    value &&
+    typeof value === 'object' &&
+    'schemaVersion' in value &&
+    (value.schemaVersion === 2 || value.schemaVersion === 3),
   );
   let encoded: string | undefined;
   try {
@@ -20,6 +24,8 @@ export function validateCreative(value: unknown, playable = false): CreativeDocu
   }
   if (new TextEncoder().encode(encoded).length > (adventure ? DOCUMENT_BYTES : LIMITS.bodyBytes))
     throw new ValidationError('作品容量超出限制，请减少文字或物体');
+  if (value && typeof value === 'object' && 'schemaVersion' in value && value.schemaVersion === 3)
+    return validateSnowman(value, playable);
   if (!adventure) return validateDocument(value, playable);
   try {
     return validateAdventure(value, playable);

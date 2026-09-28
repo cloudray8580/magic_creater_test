@@ -1,3 +1,6 @@
+import { SnowmanEditor } from './SnowmanEditor.js';
+import { snowmanTemplate } from '../shared/snowman/template.js';
+import type { TimedAction } from '../shared/snowman/engine.js';
 import { useEffect, useState, useRef, type FormEvent } from 'react';
 import {
   api,
@@ -41,11 +44,10 @@ import { SourceCredit } from './SourceCredit.js';
 import { FeedbackMap } from './FeedbackMap.js';
 import { exportPortable } from './assets.js';
 import { BUNDLE_BYTES, parsePortable } from '../shared/portable.js';
-import { AdventurePlay } from './AdventurePlay.js';
 import { DeleteProjectDialog } from './DeleteProjectDialog.js';
 import { TemplateGallery } from './TemplateGallery.js';
 import { adventureTemplate, TEMPLATE_IDS, TEMPLATE_INFO } from '../shared/adventure/templates.js';
-import type { AdventureDocument, Location } from '../shared/adventure/document.js';
+import type { Location } from '../shared/adventure/document.js';
 type View = 'samples' | 'mine' | 'editor' | 'shelf' | 'play' | 'manage';
 const statusLabels: Record<string, string> = {
   pending: '等待老师确认',
@@ -76,7 +78,8 @@ export function App() {
     document: GameDocument;
     feedback: Feedback;
   }>();
-  const [sample, setSample] = useState<AdventureDocument>(() => adventureTemplate());
+  const [sample, setSample] = useState<GameDocument>(() => adventureTemplate());
+  const [snowProof, setSnowProof] = useState<{ document: string; actions: TimedAction[] }>();
   const [assetBusy, setAssetBusy] = useState(false);
   const [previewFrom, setPreviewFrom] = useState<Location>();
   const [invalidDraft, setInvalidDraft] = useState<{ raw: unknown }>();
@@ -315,14 +318,22 @@ export function App() {
         setError('本地草稿格式无效，已保留原数据。请先导出未恢复草稿，再重新加载服务器版本。');
       }
     }
-    validateDocument(p.document);
+    const serverDocument = validateDocument(p.document);
+    const openedDocument = restored ? validateDocument(restored.document) : serverDocument;
+    const migrated =
+      JSON.stringify(openedDocument) !== JSON.stringify(restored ? restored.document : p.document);
     setProject(
       restored
-        ? { ...p, revision: restored.revision, allowRemix: restored.allowRemix ?? p.allowRemix }
-        : p,
+        ? {
+            ...p,
+            document: serverDocument,
+            revision: restored.revision,
+            allowRemix: restored.allowRemix ?? p.allowRemix,
+          }
+        : { ...p, document: serverDocument },
     );
-    setHistory(createHistory(restored ? restored.document : p.document));
-    setDirty(Boolean(restored));
+    setHistory(createHistory(openedDocument));
+    setDirty(Boolean(restored) || migrated);
     setPreview(false);
     setView('editor');
     setDraftState(
@@ -332,9 +343,11 @@ export function App() {
           ? '本地存储不可用，请及时导出'
           : restored
             ? '已恢复未保存的本地草稿'
-            : p.local
-              ? '未保存的新作品，修改后保留本地草稿'
-              : '与服务器一致',
+            : migrated
+              ? '旧版雪人作品已升级，请试玩并保存'
+              : p.local
+                ? '未保存的新作品，修改后保留本地草稿'
+                : '与服务器一致',
     );
     if (!p.deleted) await refreshHistory(p.id);
   }
@@ -632,7 +645,7 @@ export function App() {
           退出登录
         </button>
         <a
-          href="https://github.com/cloudray8580/magic_creater_test/releases/tag/m10"
+          href="https://github.com/cloudray8580/magic_creater_test/releases/tag/m11"
           target="_blank"
           rel="noopener noreferrer"
         >
@@ -694,10 +707,11 @@ export function App() {
             <>
               <div className="sample-intro">
                 <span className="eyebrow">从一次小冒险开始</span>
-                <h1>六个世界，等你发现</h1>
+                <h1>小小世界，等你发现</h1>
                 <p>先玩一会儿，看看地形、机关和故事如何组合。</p>
               </div>
               <div className="sample-picker">
+                <button onClick={() => setSample(snowmanTemplate())}>雪人回家</button>
                 {TEMPLATE_IDS.map((id) => (
                   <button
                     key={id}
@@ -709,7 +723,7 @@ export function App() {
                   </button>
                 ))}
               </div>
-              <AdventurePlay key={sample.title} document={sample} />
+              <DocumentPlay key={sample.title} document={sample} />
             </>
           )}
 
@@ -718,13 +732,20 @@ export function App() {
               <section className="hero">
                 <span className="eyebrow">每个想法都有生长的空间</span>
                 <h1>今天，创造一点什么？</h1>
-                <p>两种玩法，六个起点。先选喜欢的冒险，再把它改成你的世界。</p>
+                <p>三种玩法，七个起点。先选喜欢的冒险，再把它改成你的世界。</p>
                 <p>同一种玩法的模板共享全部创作工具，选择模板不会限制后续设计。</p>
                 <a className="my-worlds-link" href="#my-worlds">
                   回到我的小世界 · {projects.length} 个作品 ↓
                 </a>
               </section>
               <TemplateGallery
+                onSnowCreate={() => void action(() => create(snowmanTemplate()))}
+                onSnowTry={() =>
+                  void action(async () => {
+                    setSample(snowmanTemplate());
+                    await navigate('samples');
+                  })
+                }
                 onCreate={(id) => void action(() => create(adventureTemplate(id)))}
                 onTry={(id) =>
                   void action(async () => {
@@ -833,9 +854,11 @@ export function App() {
                     创作中的小世界 ·{' '}
                     {history.present.schemaVersion === 1
                       ? '经典花园'
-                      : history.present.gameType === 'platformer'
-                        ? '横版跳跃'
-                        : '探索故事'}
+                      : history.present.schemaVersion === 3
+                        ? '雪人回家'
+                        : history.present.gameType === 'platformer'
+                          ? '横版跳跃'
+                          : '探索故事'}
                   </span>
                   <h1>{history.present.title || '未命名作品'}</h1>
                 </div>
@@ -872,6 +895,11 @@ export function App() {
                     onClick={() =>
                       void action(async () => {
                         validateDocument(history.present, true);
+                        if (
+                          history.present.schemaVersion === 3 &&
+                          snowProof?.document !== JSON.stringify(history.present)
+                        )
+                          throw new Error('请先试玩当前地图，送雪人平安到家后再提交');
                         const p = dirty || project.local ? await save() : project;
                         if (
                           JSON.stringify(p.document) !== JSON.stringify(history.present) ||
@@ -880,6 +908,9 @@ export function App() {
                           throw new Error('服务器版本或改编设置与当前选择不同，请先再次保存后提交');
                         await api('/projects/' + p.id + '/submit', 'POST', {
                           revision: p.revision,
+                          ...(history.present.schemaVersion === 3
+                            ? { solution: snowProof!.actions }
+                            : {}),
                         });
                         if (!p.deleted) await refreshHistory(p.id);
                         setMessage('已提交给老师，等待确认展示');
@@ -915,7 +946,33 @@ export function App() {
                   默认关闭。更改会联网保存当前草稿；已提交版本保持原设置。开启后同伴能复制展示版本继续创作，并标注你的来源。
                 </p>
               </div>
-              {history.present.schemaVersion === 2 ? (
+              {history.present.schemaVersion === 3 ? (
+                <>
+                  <div hidden={preview} inert={busy}>
+                    <SnowmanEditor
+                      document={history.present}
+                      onChange={(doc) => persist(changeHistory(history, doc))}
+                      onUndo={() => persist(undoHistory(history))}
+                      onRedo={() => persist(redoHistory(history))}
+                      canUndo={Boolean(history.past.length)}
+                      canRedo={Boolean(history.future.length)}
+                    />
+                  </div>
+                  {preview && (
+                    <DocumentPlay
+                      document={history.present}
+                      onSnowWin={(actions) =>
+                        setSnowProof({ document: JSON.stringify(history.present), actions })
+                      }
+                    />
+                  )}
+                  <p>
+                    {snowProof?.document === JSON.stringify(history.present)
+                      ? '当前地图已通关，可以提交给老师。'
+                      : '提交前请试玩并通关当前地图；修改地图或材料后需要重新通关。'}
+                  </p>
+                </>
+              ) : history.present.schemaVersion === 2 ? (
                 <>
                   <div hidden={preview} inert={busy} aria-busy={busy}>
                     <AdventureEditor

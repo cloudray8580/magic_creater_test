@@ -278,7 +278,7 @@ it('keeps saving and image upload from racing while allowing the upload to finis
 it('selects all six starting documents and previews without creating a project', async () => {
   await start();
   await click('我的作品');
-  expect(host.querySelectorAll('.template-group')).toHaveLength(2);
+  expect(host.querySelectorAll('.template-group')).toHaveLength(3);
   expect(host.querySelectorAll('.template-card img')).toHaveLength(6);
   for (const id of TEMPLATE_IDS) {
     const title = TEMPLATE_INFO[id].title;

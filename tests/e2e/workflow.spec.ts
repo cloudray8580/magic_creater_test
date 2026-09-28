@@ -25,11 +25,16 @@ test('teacher, two creators, review, play, feedback and withdrawal', async ({ br
   await a.getByRole('button', { name: '提交给老师' }).click();
   await expect(a.getByRole('status')).toContainText('已提交给老师');
   await t.getByRole('button', { name: '刷新管理页' }).click();
-  await t.getByRole('button', { name: '确认展示' }).click();
-  await expect(t.getByText('展示中', { exact: true })).toBeVisible();
+  const firstReview = t.locator('article.review').filter({ hasText: '我的第一座花园' });
+  await firstReview.getByRole('button', { name: '确认展示' }).click();
+  await expect(firstReview.getByText('展示中', { exact: true })).toBeVisible();
   await login(b, 'bob');
   await b.getByRole('button', { name: '同伴作品', exact: true }).click();
-  await b.getByRole('button', { name: '试玩作品' }).click();
+  await b
+    .locator('article.card')
+    .filter({ hasText: '我的第一座花园' })
+    .getByRole('button', { name: '试玩作品' })
+    .click();
   for (let i = 0; i < 5; i++) await b.getByRole('button', { name: '向右', exact: true }).click();
   for (let i = 0; i < 5; i++) await b.getByRole('button', { name: '向下', exact: true }).click();
   await expect(b.getByText('你完成了这个小世界！')).toBeVisible();
@@ -44,7 +49,8 @@ test('teacher, two creators, review, play, feedback and withdrawal', async ({ br
   await t.getByRole('button', { name: '刷新管理页' }).click();
   await a.getByRole('button', { name: '提交给老师' }).click();
   await t.getByRole('button', { name: '刷新管理页' }).click();
-  await t.getByRole('button', { name: '确认展示' }).click();
+  const secondReview = t.locator('article.review').filter({ hasText: '收到反馈后的花园' });
+  await secondReview.getByRole('button', { name: '确认展示' }).click();
   await t
     .locator('article.review')
     .filter({ hasText: '我喜欢这条温柔的小路' })
@@ -65,9 +71,13 @@ test('teacher, two creators, review, play, feedback and withdrawal', async ({ br
   await expect(a.getByRole('heading', { name: '我的第一座花园', exact: true })).toBeVisible();
   await a.getByRole('button', { name: '返回编辑作品' }).click();
   await expect(a.getByLabel('作品名称')).toHaveValue('仅在内存中的草稿');
-  await t.getByRole('button', { name: '撤回展示' }).click();
+  for (const review of [firstReview, secondReview]) {
+    const withdraw = review.getByRole('button', { name: '撤回展示' });
+    if (await withdraw.count()) await withdraw.click();
+  }
   await b.getByRole('button', { name: '同伴作品', exact: true }).click();
-  await expect(b.getByText('还没有展示中的作品')).toBeVisible();
+  await expect(b.locator('article.card').filter({ hasText: '我的第一座花园' })).toHaveCount(0);
+  await expect(b.locator('article.card').filter({ hasText: '收到反馈后的花园' })).toHaveCount(0);
   await a.screenshot({ path: 'artifacts/editor.png', fullPage: true });
   await t.close();
   await a.close();

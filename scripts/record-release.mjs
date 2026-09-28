@@ -98,7 +98,82 @@ try {
       await page.getByRole('button', { name: '进入工坊' }).click();
     },
   );
-  if (version === 'm8') {
+  if (version === 'm11') {
+    const cell = async (x, y) => {
+      const map = page.getByRole('application', { name: '雪地地图' });
+      await map.scrollIntoViewIfNeeded();
+      await map.evaluate(
+        (el, p) => {
+          const view = el.parentElement;
+          view.scrollLeft = Math.max(0, p.x * 40 - view.clientWidth / 2);
+          view.scrollTop = Math.max(0, p.y * 40 - view.clientHeight / 2);
+        },
+        { x, y },
+      );
+      const b = await map.boundingBox();
+      const v = await map.evaluate((el) => ({
+        x: el.viewBox.baseVal.x,
+        y: el.viewBox.baseVal.y,
+        w: el.viewBox.baseVal.width,
+        h: el.viewBox.baseVal.height,
+      }));
+      await page.mouse.click(
+        b.x + (((x + 0.5) * 40 - v.x) / v.w) * b.width,
+        b.y + (((y + 0.5) * 40 - v.y) / v.h) * b.height,
+      );
+      await page.waitForTimeout(240);
+    };
+    await cue('新玩法：雪人回家。画一段归途，让同伴亲手救援', 6, async () => {
+      await page.getByRole('button', { name: '开始创作雪人回家', exact: true }).click();
+    });
+    await cue('创作者设定地图、准备倒计时、木材、清水和雪球数量', 6, async () => {
+      await page.getByLabel('作品名称').fill('帽子堆高高的归途');
+      await page.getByLabel('作品名称').press('Tab');
+      await page.getByLabel('地图宽度').fill('48');
+      await page.getByLabel('地图宽度').press('Tab');
+    });
+    await cue('地形与拾取物分层：星星帽、毛线帽和胡萝卜都能亲手放进关卡', 7, async () => {
+      await page.getByRole('button', { name: /星星帽/ }).click();
+      await cell(18, 8);
+      await page.getByRole('button', { name: '毛线帽' }).click();
+      await cell(19, 8);
+      await page.getByRole('button', { name: '胡萝卜' }).click();
+      await cell(20, 8);
+    });
+    await cue('开始救援后倒计时3秒。先给雪人滑雪板，再修好前面的破路', 6, async () => {
+      await page.getByRole('button', { name: '试玩关卡', exact: true }).click();
+      await page.getByRole('button', { name: '开始救援' }).click();
+      await page.getByRole('button', { name: '滑雪板 · 2 木' }).click();
+      await cell(2, 8);
+      await page.getByRole('button', { name: '修路 · 1 木' }).click();
+      await cell(10, 8);
+    });
+    await cue('雪人已自动出发！玩家仍能灭火、在前方放雪球延长旅程', 6, async () => {
+      await page.getByText('雪人正在回家').waitFor({ timeout: 6000 });
+      await page.getByRole('button', { name: '灭火 · 1 水' }).click();
+      await cell(14, 8);
+      await page.getByRole('button', { name: '雪球 · 1 个' }).click();
+      await cell(16, 8);
+      await page.locator('.snow-map-wrap').scrollIntoViewIfNeeded();
+    });
+    await cue('雪球补充体积；经过不同帽子会按顺序叠高，胡萝卜也会戴上', 14, async () => {
+      await page.getByRole('heading', { name: '雪人平安到家了！' }).waitFor({ timeout: 17000 });
+      await page.locator('.snow-result').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: join(output, 'm11-completed.png'), fullPage: true });
+    });
+    await cue('结果可以回放，再看一次自己的救援步骤', 8, async () => {
+      await page.getByRole('button', { name: '观看回放' }).click();
+      await page.getByLabel('回放速度').selectOption('4');
+      await page.getByRole('heading', { name: '雪人平安到家了！' }).waitFor({ timeout: 11000 });
+    });
+    await cue('亲自通关后保存并提交老师，同伴就能挑战你创造的雪地', 8, async () => {
+      await page.getByRole('button', { name: '返回编辑', exact: true }).click();
+      await page.getByRole('button', { name: '保存到服务器' }).click();
+      await page.getByText('已保存到服务器', { exact: true }).waitFor();
+      await page.getByRole('button', { name: '提交给老师' }).click();
+      await page.getByText('已提交给老师，等待确认展示').waitFor();
+    });
+  } else if (version === 'm8') {
     await cue('两种玩法，六个灵感起点；我的小世界从空白开始', 7, async () => {
       await page.locator('#my-worlds').scrollIntoViewIfNeeded();
       await page.waitForTimeout(2000);

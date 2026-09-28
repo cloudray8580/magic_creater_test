@@ -1,3 +1,4 @@
+import { SnowFigure, WinterIcon } from './SnowmanMap.js';
 import { TEMPLATE_IDS, TEMPLATE_INFO, type TemplateId } from '../shared/adventure/templates.js';
 
 const summaries: Record<TemplateId, { summary: string; focus: string }> = {
@@ -41,12 +42,62 @@ const groups = [
 export function TemplateGallery({
   onCreate,
   onTry,
+  onSnowCreate,
+  onSnowTry,
 }: {
+  onSnowCreate?: () => void;
+  onSnowTry?: () => void;
   onCreate: (id: TemplateId) => void;
   onTry: (id: TemplateId) => void;
 }) {
   return (
     <div className="template-gallery">
+      <section className="template-group" aria-labelledby="snow-template-title">
+        <div className="template-group-heading">
+          <h2 id="snow-template-title">雪人回家 · 规划解谜</h2>
+          <p>修路、架桥、安排路牌，用有限的材料送雪人回家。</p>
+        </div>
+        <article className="template-card snow-template-card">
+          <svg
+            className="snow-template-art"
+            viewBox="0 0 600 210"
+            role="img"
+            aria-label="雪人沿着冬日小路回家的游戏插画"
+          >
+            <rect width="600" height="210" fill="#d3e8e8" />
+            <path d="M0 180Q160 130 300 160T600 120V210H0" fill="#edf5eb" />
+            <path d="M50 150H510" stroke="#fff8e7" strokeWidth="34" strokeLinecap="round" />
+            <path d="M50 150H510" stroke="#76a7ad" strokeWidth="2" strokeDasharray="3 8" />
+            {[70, 160, 360, 550].map((x, i) => (
+              <g key={x} transform={`translate(${x} ${i % 2 ? 40 : 90}) scale(1.4)`}>
+                <WinterIcon kind="tree" />
+              </g>
+            ))}
+            <g transform="translate(225 90) scale(1.5)">
+              <SnowFigure hats={2} carrot />
+            </g>
+            <g transform="translate(455 75) scale(2)">
+              <WinterIcon kind="home" />
+            </g>
+            <g transform="translate(320 125)">
+              <WinterIcon kind="fire" />
+            </g>
+          </svg>
+          <div className="template-card-body">
+            <span className="template-focus">有限材料 · 自动寻路 · 帽子叠叠高</span>
+            <h3>雪人回家</h3>
+            <p>短路有火，近路断桥，远路藏着帽子。你会怎样安排这趟旅程？</p>
+            <div className="row">
+              <button className="primary" onClick={onSnowCreate} aria-label="开始创作雪人回家">
+                开始创作
+              </button>
+              <button onClick={onSnowTry} aria-label="先玩一玩雪人回家">
+                先玩一玩
+              </button>
+            </div>
+          </div>
+        </article>
+      </section>
       {groups.map((group) => (
         <section
           className="template-group"

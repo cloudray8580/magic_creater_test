@@ -1188,3 +1188,184 @@ select {
   max-width: none;
   max-height: none;
 }
+
+/* Snowman home: winter paper, warm road and deliberate planning. */
+.snow-game,
+.snow-editor {
+  --snow-ink: #35586b;
+  color: var(--snow-ink);
+}
+.snow-intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 22px 26px;
+  background: linear-gradient(120deg, #d4eaeb, #f7f3df);
+  border-radius: 20px;
+  margin: 12px 0;
+}
+.snow-intro h2 {
+  font-size: 30px;
+  margin: 6px 0;
+}
+.snow-intro p {
+  margin: 6px 0;
+  max-width: 650px;
+}
+.snow-mass {
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.snow-mass strong {
+  font-size: 32px;
+}
+.snow-mass meter {
+  width: 100%;
+  height: 16px;
+  accent-color: #57918f;
+}
+.snow-rules {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.snow-supplies {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.snow-supplies span {
+  padding: 10px 20px;
+  background: #edf4ef;
+  border: 1px solid #dce9e4;
+  border-radius: 12px;
+}
+.snow-supplies b {
+  font-size: 20px;
+  margin-left: 10px;
+}
+.snow-tools {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+  align-items: center;
+}
+.snow-tools button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.snow-tools button[aria-pressed='true'] {
+  background: #355e70;
+  color: #fff9eb;
+  border-color: #355e70;
+}
+.snow-tools label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.snow-map-wrap {
+  margin-top: 18px;
+  border: 1px solid #bcd4d6;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #eff6ef;
+}
+.snow-map-tools,
+.snow-map-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+.snow-map-tools > span,
+.snow-map-footer > span {
+  margin-right: auto;
+  font-size: 13px;
+}
+.snow-map-tools label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.snow-map-tools button {
+  padding: 6px 12px;
+}
+.snow-map-scroll {
+  max-height: 560px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.snow-map-scroll > svg {
+  display: block;
+  max-width: none;
+  touch-action: none;
+  user-select: none;
+}
+.snow-map-footer svg {
+  cursor: crosshair;
+  border-radius: 6px;
+}
+.snow-route {
+  pointer-events: none;
+}
+.snow-character {
+  pointer-events: none;
+}
+.snow-editor-settings {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(100px, 1fr));
+  gap: 12px;
+}
+.snow-editor-settings label:first-child,
+.snow-editor-settings label:nth-child(2) {
+  grid-column: span 2;
+}
+.snow-editor-settings input {
+  width: 100%;
+}
+.snow-result {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 24px;
+  border-radius: 18px;
+  background: #e5eee2;
+  margin-top: 16px;
+}
+.snow-result.lost {
+  background: #f6e9de;
+}
+.snow-result h3 {
+  margin: 0;
+}
+.snow-template-card {
+  max-width: 600px;
+}
+.snow-template-art {
+  background: #d3e8e8;
+  display: block;
+  width: 100%;
+  height: 210px;
+}
+@media (max-width: 800px) {
+  .snow-editor-settings {
+    grid-template-columns: repeat(2, minmax(80px, 1fr));
+  }
+  .snow-intro {
+    padding: 16px;
+    align-items: flex-start;
+  }
+  .snow-intro h2 {
+    font-size: 24px;
+  }
+  .snow-map-tools > span {
+    width: 100%;
+  }
+}

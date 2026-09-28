@@ -1,3 +1,4 @@
+import { replay as replaySnowman } from '../shared/snowman/engine.js';
 import Fastify, { type FastifyRequest, type FastifyReply } from 'fastify';
 import cookie from '@fastify/cookie';
 import staticFiles from '@fastify/static';
@@ -562,10 +563,12 @@ export async function createApp(options: AppOptions) {
   }
   app.post('/api/projects/:id/submit', async (req) => {
     const p = ownedProject(req),
-      b = bodyObject(req.body, ['revision']);
+      b = bodyObject(req.body, ['revision', 'solution']);
     if (revision(b.revision) !== p.revision)
       throw new HttpError(409, '作品已更新，请保存当前草稿后再提交');
     const document = validateDocument(JSON.parse(p.document), true);
+    if (document.schemaVersion === 3 && replaySnowman(document, b.solution).status !== 'won')
+      throw new HttpError(400, '请先用当前地图和材料完成一次回家旅程');
     requireOwnedAssets(db, p.owner_id, document);
     const previous = db
       .prepare('SELECT id FROM versions WHERE project_id=? AND source_revision=?')

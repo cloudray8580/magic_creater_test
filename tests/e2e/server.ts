@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createApp } from '../../src/server/app.js';
@@ -15,9 +15,13 @@ await bootstrap(db, {
   password: 'test-password-123',
   classroomName: '创作小组',
 });
+// Browser tests may seed historical rows in this isolated temporary database.
+mkdirSync('artifacts', { recursive: true });
+writeFileSync('artifacts/e2e-db-path', join(dir, 'app.sqlite'));
 await app.listen({ host: '127.0.0.1', port: 4273 });
 for (const signal of ['SIGTERM', 'SIGINT'])
   process.once(signal, async () => {
     await app.close();
     rmSync(dir, { recursive: true, force: true });
+    rmSync('artifacts/e2e-db-path', { force: true });
   });
