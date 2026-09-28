@@ -22,5 +22,7 @@
 
 ## 录制与部署
 
-待源提交冻结后在11700使用虚构账号与隔离临时库录制55–75秒MP4，生成中文字幕、封面、SHA256清单；抽帧核对创作/实时干预/帽塔/结果/回放/提交。
-升级演练仅操作正式数据库的一致性副本；正式部署后需核对服务、登录、既有作品摘要、本机备份和恢复。证据待填。
+- 录制：在11700用虚构账号和隔离SQLite录制真实Chromium操作，视频66.08秒、1440×1000；素材在 artifacts/releases/m11/（MP4、封面、中文字幕、manifest.json、SHA256SUMS）。九帧拼图和通关截图已核对创作、途中灭火/放雪球、两顶不同帽子叠高、通关、回放及保存提交。manifest记录实际录制源码提交8b6f7e1；媒体附件随 [M11 GitHub Release](https://github.com/cloudray8580/magic_creater_test/releases/tag/m11) 发布。
+- 升级演练：scripts/verify-upgrade.mjs 只读正式库，临时副本完成schema4→4、所有既有表数据一致、资产/来源/坐标/幂等创建键恢复与旧版本成对回滚；输出见 /tmp/m11-verify-upgrade.log。
+- 部署：main源码提交8b6f7e1，发布目录 /home/cloudray/.local/share/magic-creater/releases/20260928T041103Z；成对回滚快照 /home/cloudray/.local/share/magic-creater/upgrades/20260928T041103Z/app.sqlite。部署脚本先停旧服务再备份，最终健康检查通过。
+- 正式验证：scripts/verify-deployment.mjs 检查服务重启、登录会话、前端3项资源哈希、正式内容未变化、当日本机备份恢复、SQLite完整性与外键；原有3用户、1班级、16作品、2版本保留。实际Chromium另用正式教师账号登录，打开雪人样板并启动旅程，首页“本次更新”指向M11。输出见 /tmp/m11-verify-deploy.log；正式账号密码、数据和生产截图均未入Git。
